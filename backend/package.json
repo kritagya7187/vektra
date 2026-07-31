@@ -1,0 +1,6 @@
+{
+  "name": "vektra-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VEKTRA Backend API Layer (EDD Section 21, 23) — placeholder, no implementation yet."
+}

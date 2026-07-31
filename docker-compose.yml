@@ -1,0 +1,21 @@
+# VEKTRA docker-compose — structural placeholder only.
+# Services per Section 7 (Modularity) and Section 34 (Deployment Strategy).
+# No build contexts, images, or commands are defined yet.
+
+version: "3.9"
+
+services:
+  db:            # PostgreSQL + PostGIS — Section 12, 16
+    image: "TBD"
+
+  ingestion:      # Python ETL jobs — Section 10, 14
+    build: ./ingestion
+
+  simulation:     # Deterministic Heat Exposure Index engine — Section 17
+    build: ./simulation
+
+  backend:        # Node.js + TypeScript API layer — Section 21, 23
+    build: ./backend
+
+  frontend:       # TypeScript + CesiumJS client — Section 20, 22
+    build: ./frontend
