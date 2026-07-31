@@ -120,6 +120,27 @@ export class BuildingRepositoryImpl extends BaseRepository implements BuildingRe
     }
     return mapRow(row);
   }
+
+  /**
+   * Heat Exposure Engine subsystem: the exact building set belonging to
+   * ONE resolved OSM provenance batch, not every building ever ingested
+   * across every re-ingestion (see this subsystem's engineering
+   * review). ORDER BY building_id keeps iteration order stable/
+   * deterministic across runs, though the resulting row SET is identical
+   * regardless of order.
+   */
+  async listByProvenanceId(
+    provenanceId: string,
+    executor?: Database,
+  ): Promise<readonly Building[]> {
+    const rows = await this.queryMany<BuildingRow>(
+      'BuildingRepository.listByProvenanceId',
+      `SELECT ${COLUMNS} FROM building WHERE provenance_id = $1 ORDER BY building_id ASC`,
+      [provenanceId],
+      executor,
+    );
+    return rows.map(mapRow);
+  }
 }
 
 export const buildingRepository = new BuildingRepositoryImpl();

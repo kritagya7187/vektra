@@ -4,9 +4,13 @@ import type {
   CreateBuildingInput,
   CreateDataProvenanceRecordInput,
   CreateEnvironmentalRasterAssetInput,
+  CreateHeatExposureFactorValueInput,
+  CreateHeatExposureResultInput,
   CreateMeteorologicalObservationInput,
   CreateScenarioInput,
   CreateScenarioOverrideInput,
+  CreateSimulationRunInputDatasetInput,
+  CreateSimulationRunInput,
   DataProvenanceRecord,
   DataSource,
   EnvironmentalRasterAsset,
@@ -17,6 +21,7 @@ import type {
   ScenarioOverride,
   SimulationRun,
   SimulationRunInputDataset,
+  UpdateSimulationRunStatusInput,
 } from '../models';
 
 /**
@@ -67,10 +72,35 @@ export type DataSourceRepository = ReadRepository<DataSource, string>;
 export interface DataProvenanceRecordRepository
   extends
     ReadRepository<DataProvenanceRecord>,
-    WriteRepository<DataProvenanceRecord, CreateDataProvenanceRecordInput> {}
+    WriteRepository<DataProvenanceRecord, CreateDataProvenanceRecordInput> {
+  /**
+   * Heat Exposure Engine subsystem: Section 17's "explicit version
+   * identifier, never latest implicitly" is satisfied by resolving AND
+   * recording this value, not by never calling it "latest" at all — see
+   * this subsystem's engineering review for the full reasoning. Mirrors
+   * SimulationRunRepository.findLatestBaselineRun's existing precedent
+   * for naming a "most recent by timestamp" query explicitly rather than
+   * leaving it implicit.
+   */
+  findLatestBySourceCode(
+    sourceCode: string,
+    executor?: Database,
+  ): Promise<DataProvenanceRecord | null>;
+}
 
 export interface BuildingRepository
-  extends ReadRepository<Building>, WriteRepository<Building, CreateBuildingInput> {}
+  extends ReadRepository<Building>, WriteRepository<Building, CreateBuildingInput> {
+  /**
+   * Heat Exposure Engine subsystem: OSM ingestion is a versioned append
+   * (Section 27), so building.list() alone returns buildings across
+   * EVERY batch ever ingested. A simulation run must operate over
+   * exactly the building set belonging to ONE resolved provenance batch
+   * — this is the "reconstruct the exact building layer used for a
+   * historical simulation" mechanism, used internally by this
+   * subsystem's own service, not exposed as a new public endpoint.
+   */
+  listByProvenanceId(provenanceId: string, executor?: Database): Promise<readonly Building[]>;
+}
 
 /**
  * EnvironmentalRasterAssetRepository and MeteorologicalObservationRepository
@@ -88,8 +118,24 @@ export interface EnvironmentalRasterAssetRepository
 export interface MeteorologicalObservationRepository
   extends
     ReadRepository<MeteorologicalObservation>,
-    WriteRepository<MeteorologicalObservation, CreateMeteorologicalObservationInput> {}
-export interface HeatExposureResultRepository extends ReadRepository<HeatExposureResult> {
+    WriteRepository<MeteorologicalObservation, CreateMeteorologicalObservationInput> {
+  /**
+   * Heat Exposure Engine subsystem: the meteorological_context factor
+   * (Section 18's "applied uniformly... across the study area") uses the
+   * single most recent reading for one variable within one resolved
+   * Open-Meteo batch — no averaging/interpolation, see this subsystem's
+   * engineering review.
+   */
+  findLatestByProvenanceAndVariable(
+    provenanceId: string,
+    variableName: string,
+    executor?: Database,
+  ): Promise<MeteorologicalObservation | null>;
+}
+export interface HeatExposureResultRepository
+  extends
+    ReadRepository<HeatExposureResult>,
+    WriteRepository<HeatExposureResult, CreateHeatExposureResultInput> {
   /**
    * EDD Section 21: "retrieve scenario-vs-baseline comparison results"
    * and "Query Heat Exposure Index results for a given simulation run" —
@@ -103,12 +149,25 @@ export interface HeatExposureResultRepository extends ReadRepository<HeatExposur
   listByRunId(runId: string, executor?: Database): Promise<readonly HeatExposureResult[]>;
 }
 
-export interface SimulationRunRepository extends ReadRepository<SimulationRun> {
+export interface SimulationRunRepository
+  extends ReadRepository<SimulationRun>, WriteRepository<SimulationRun, CreateSimulationRunInput> {
   /**
    * EDD Section 21, verbatim: "Query Heat Exposure Index results for a
    * given simulation run (default: latest baseline run)."
    */
   findLatestBaselineRun(executor?: Database): Promise<SimulationRun | null>;
+
+  /**
+   * Heat Exposure Engine subsystem: the ONLY update simulation_run ever
+   * permits (fn_guard_simulation_run_update, db/migrations/0008) — the
+   * lifecycle columns (status/started_at/completed_at/error_message),
+   * never the identity columns fixed at creation.
+   */
+  updateStatus(
+    runId: string,
+    input: UpdateSimulationRunStatusInput,
+    executor?: Database,
+  ): Promise<SimulationRun>;
 }
 
 export interface ScenarioRepository
@@ -126,7 +185,10 @@ export interface ScenarioOverrideRepository extends WriteRepository<
   listByScenarioId(scenarioId: string, executor?: Database): Promise<readonly ScenarioOverride[]>;
 }
 
-export interface HeatExposureFactorValueRepository {
+export interface HeatExposureFactorValueRepository extends WriteRepository<
+  HeatExposureFactorValue,
+  CreateHeatExposureFactorValueInput
+> {
   /**
    * EDD Section 22: the inspection panel's "Heat Exposure Index
    * breakdown" is the per-factor values for one result.
@@ -137,7 +199,10 @@ export interface HeatExposureFactorValueRepository {
   ): Promise<readonly HeatExposureFactorValue[]>;
 }
 
-export interface SimulationRunInputDatasetRepository {
+export interface SimulationRunInputDatasetRepository extends WriteRepository<
+  SimulationRunInputDataset,
+  CreateSimulationRunInputDatasetInput
+> {
   /**
    * FR-12 / EDD Section 17: "the exact input dataset versions... used,
    * sufficient to reproduce the run" — every dataset version one run

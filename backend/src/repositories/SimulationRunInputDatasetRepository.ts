@@ -1,5 +1,5 @@
 import type { Database } from '../database';
-import type { SimulationRunInputDataset } from '../models';
+import type { CreateSimulationRunInputDatasetInput, SimulationRunInputDataset } from '../models';
 import type { SimulationRunInputDatasetRepository as SimulationRunInputDatasetRepositoryContract } from '../types';
 import { BaseRepository } from './BaseRepository';
 
@@ -44,6 +44,33 @@ export class SimulationRunInputDatasetRepositoryImpl
       executor,
     );
     return rows.map(mapRow);
+  }
+
+  /**
+   * Heat Exposure Engine subsystem — the only writer (db/migrations/0014
+   * grants INSERT on simulation_run_input_dataset to vektra_simulation
+   * only). No RETURNING needed for the row body (there are no columns
+   * beyond the composite key and timestamps), but it's used anyway to
+   * confirm the insert succeeded and to get server-generated timestamps.
+   */
+  async create(
+    input: CreateSimulationRunInputDatasetInput,
+    executor?: Database,
+  ): Promise<SimulationRunInputDataset> {
+    const row = await this.queryOne<SimulationRunInputDatasetRow>(
+      'SimulationRunInputDatasetRepository.create',
+      `INSERT INTO simulation_run_input_dataset (run_id, provenance_id)
+       VALUES ($1, $2)
+       RETURNING run_id, provenance_id, created_at, updated_at`,
+      [input.runId, input.provenanceId],
+      executor,
+    );
+    if (!row) {
+      throw new Error(
+        'SimulationRunInputDatasetRepository.create: INSERT RETURNING produced no row.',
+      );
+    }
+    return mapRow(row);
   }
 }
 

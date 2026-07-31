@@ -114,6 +114,29 @@ export class MeteorologicalObservationRepositoryImpl
     }
     return mapRow(row);
   }
+
+  /**
+   * Heat Exposure Engine subsystem: the single reading the
+   * meteorological_context factor applies uniformly to every building
+   * (EDD Section 18) — no averaging or interpolation across the many
+   * readings one ingestion batch typically contains.
+   */
+  async findLatestByProvenanceAndVariable(
+    provenanceId: string,
+    variableName: string,
+    executor?: Database,
+  ): Promise<MeteorologicalObservation | null> {
+    const row = await this.queryOne<MeteorologicalObservationRow>(
+      'MeteorologicalObservationRepository.findLatestByProvenanceAndVariable',
+      `SELECT ${COLUMNS} FROM meteorological_observation
+       WHERE provenance_id = $1 AND variable_name = $2
+       ORDER BY observation_timestamp DESC
+       LIMIT 1`,
+      [provenanceId, variableName],
+      executor,
+    );
+    return row ? mapRow(row) : null;
+  }
 }
 
 export const meteorologicalObservationRepository = new MeteorologicalObservationRepositoryImpl();

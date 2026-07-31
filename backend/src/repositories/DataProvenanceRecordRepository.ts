@@ -97,6 +97,28 @@ export class DataProvenanceRecordRepositoryImpl
     }
     return mapRow(row);
   }
+
+  /**
+   * Heat Exposure Engine subsystem: default input-version resolution
+   * (Section 17) when the caller does not pin an explicit provenance id
+   * — see types/repositories.ts's own note on why "most recent by
+   * retrieval_timestamp" satisfies "explicit, never latest implicitly."
+   */
+  async findLatestBySourceCode(
+    sourceCode: string,
+    executor?: Database,
+  ): Promise<DataProvenanceRecord | null> {
+    const row = await this.queryOne<DataProvenanceRecordRow>(
+      'DataProvenanceRecordRepository.findLatestBySourceCode',
+      `SELECT ${COLUMNS} FROM data_provenance_record
+       WHERE source_code = $1
+       ORDER BY retrieval_timestamp DESC
+       LIMIT 1`,
+      [sourceCode],
+      executor,
+    );
+    return row ? mapRow(row) : null;
+  }
 }
 
 export const dataProvenanceRecordRepository = new DataProvenanceRecordRepositoryImpl();

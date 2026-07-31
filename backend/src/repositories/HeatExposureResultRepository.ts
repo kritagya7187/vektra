@@ -1,5 +1,5 @@
 import type { Database } from '../database';
-import type { HeatExposureResult } from '../models';
+import type { CreateHeatExposureResultInput, HeatExposureResult } from '../models';
 import type {
   HeatExposureResultRepository as HeatExposureResultRepositoryContract,
   ListOptions,
@@ -77,6 +77,31 @@ export class HeatExposureResultRepositoryImpl
       executor,
     );
     return rows.map(mapRow);
+  }
+
+  /**
+   * Heat Exposure Engine subsystem — the only writer (db/migrations/0014
+   * grants INSERT on heat_exposure_result to vektra_simulation only).
+   * indexValue is always omitted/null by this subsystem's own service —
+   * see this repository's own class comment and the engineering review
+   * for why the composite index is never computed.
+   */
+  async create(
+    input: CreateHeatExposureResultInput,
+    executor?: Database,
+  ): Promise<HeatExposureResult> {
+    const row = await this.queryOne<HeatExposureResultRow>(
+      'HeatExposureResultRepository.create',
+      `INSERT INTO heat_exposure_result (run_id, building_id, index_value)
+       VALUES ($1, $2, $3)
+       RETURNING ${COLUMNS}`,
+      [input.runId, input.buildingId, input.indexValue ?? null],
+      executor,
+    );
+    if (!row) {
+      throw new Error('HeatExposureResultRepository.create: INSERT RETURNING produced no row.');
+    }
+    return mapRow(row);
   }
 }
 

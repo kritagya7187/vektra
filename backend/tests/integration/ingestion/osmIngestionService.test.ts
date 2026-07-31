@@ -140,6 +140,7 @@ describe('OsmIngestionService (real DB, stubbed Overpass client)', () => {
     const flakyBuildingRepository: BuildingRepository = {
       findById: buildingRepository.findById.bind(buildingRepository),
       list: buildingRepository.list.bind(buildingRepository),
+      listByProvenanceId: buildingRepository.listByProvenanceId.bind(buildingRepository),
       create: async (input, executor) => {
         callCount += 1;
         if (input.osmId === 900002) {
@@ -178,6 +179,7 @@ describe('OsmIngestionService (real DB, stubbed Overpass client)', () => {
       create: () => Promise.reject(new Error('simulated infrastructure failure')),
       findById: () => Promise.resolve(null),
       list: () => Promise.resolve([]),
+      findLatestBySourceCode: () => Promise.resolve(null),
     };
 
     const service = new OsmIngestionService({

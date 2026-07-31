@@ -11,3 +11,14 @@ export interface SimulationRunInputDataset {
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
+
+/**
+ * Input shape for creating a SimulationRunInputDataset row (Heat
+ * Exposure Engine subsystem — the only writer, matching
+ * db/migrations/0014's INSERT grant to vektra_simulation). No fields
+ * beyond the composite key: the row has no other columns to populate.
+ */
+export interface CreateSimulationRunInputDatasetInput {
+  readonly runId: string;
+  readonly provenanceId: string;
+}

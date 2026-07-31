@@ -26,15 +26,15 @@ export interface DataProvenanceRecordFixture {
 }
 
 export async function createDataProvenanceRecord(
-  overrides: Partial<{ sourceCode: string }> = {},
+  overrides: Partial<{ sourceCode: string; retrievalTimestamp: Date }> = {},
 ): Promise<DataProvenanceRecordFixture> {
   const sourceCode = overrides.sourceCode ?? 'osm_overpass';
   const provenanceId = randomUUID();
   await superuserPool.query(
     `INSERT INTO data_provenance_record
        (provenance_id, source_code, source_product_identifier, retrieval_timestamp, license, ingestion_pipeline_version, checksum)
-     VALUES ($1, $2, 'test-fixture', now(), 'ODbL', 'v0.0.0-test', 'test-checksum')`,
-    [provenanceId, sourceCode],
+     VALUES ($1, $2, 'test-fixture', $3, 'ODbL', 'v0.0.0-test', 'test-checksum')`,
+    [provenanceId, sourceCode, overrides.retrievalTimestamp ?? new Date()],
   );
   return { provenanceId, sourceCode };
 }
@@ -163,6 +163,38 @@ export async function createScenarioOverride(
      VALUES ($1, $2, $3, $4, $5)`,
     [scenarioId, buildingId, sequenceNumber, attributeName, overrideValue],
   );
+}
+
+export interface MeteorologicalObservationFixture {
+  readonly metObservationId: string;
+  readonly provenanceId: string;
+  readonly variableName: string;
+  readonly variableValue: number;
+}
+
+export async function createMeteorologicalObservation(
+  overrides: Partial<{
+    provenanceId: string;
+    variableName: string;
+    variableValue: number;
+    observationTimestamp: Date;
+  }> = {},
+): Promise<MeteorologicalObservationFixture> {
+  const provenanceId =
+    overrides.provenanceId ??
+    (await createDataProvenanceRecord({ sourceCode: 'open_meteo' })).provenanceId;
+  const metObservationId = randomUUID();
+  const variableName = overrides.variableName ?? 'temperature_2m';
+  const variableValue = overrides.variableValue ?? 31.4;
+  const observationTimestamp = overrides.observationTimestamp ?? new Date();
+
+  await superuserPool.query(
+    `INSERT INTO meteorological_observation
+       (met_observation_id, source_code, observation_timestamp, location, variable_name, variable_value, variable_unit, provenance_id)
+     VALUES ($1, 'open_meteo', $2, ST_GeomFromText('POINT(72.8317 18.925)', 4326), $3, $4, '°C', $5)`,
+    [metObservationId, observationTimestamp, variableName, variableValue, provenanceId],
+  );
+  return { metObservationId, provenanceId, variableName, variableValue };
 }
 
 export interface EnvironmentalRasterAssetFixture {

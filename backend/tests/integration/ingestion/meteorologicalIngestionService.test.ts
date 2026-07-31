@@ -77,6 +77,10 @@ describe('MeteorologicalIngestionService (real DB, stubbed Open-Meteo client)', 
         meteorologicalObservationRepository,
       ),
       list: meteorologicalObservationRepository.list.bind(meteorologicalObservationRepository),
+      findLatestByProvenanceAndVariable:
+        meteorologicalObservationRepository.findLatestByProvenanceAndVariable.bind(
+          meteorologicalObservationRepository,
+        ),
       create: async (input, executor) => {
         callCount += 1;
         if (input.variableValue === OBSERVATION_B.variableValue) {
@@ -128,6 +132,7 @@ describe('MeteorologicalIngestionService (real DB, stubbed Open-Meteo client)', 
       create: () => Promise.reject(new Error('simulated infrastructure failure')),
       findById: () => Promise.resolve(null),
       list: () => Promise.resolve([]),
+      findLatestBySourceCode: () => Promise.resolve(null),
     };
 
     const service = new MeteorologicalIngestionService(fakeOpenMeteoClient([OBSERVATION_A]), {

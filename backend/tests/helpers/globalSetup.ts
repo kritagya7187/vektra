@@ -20,18 +20,19 @@ import { GenericContainer, Wait, type StartedTestContainer } from 'testcontainer
  * and every manual verification run in Subsystems 3-11.
  *
  * Also granted membership in vektra_ingestion (added in the OSM
- * Ingestion subsystem) — a deliberate, test-harness-only deviation from
- * the real deployment model. In production, the API server and the
- * ingestion CLI are separate OS processes, each connecting as its own
- * narrowly-scoped role (db/docker/03-create-app-role.sh only ever
- * provisions the vektra_backend_api membership real deployments use);
- * that separation is the actual least-privilege enforcement point and
- * is untouched. This test harness is one process exercising both
- * API-role-scoped and ingestion-role-scoped repository code across the
- * same suite, and Postgres roles support multiple simultaneous
- * memberships — granting both to the one test login role is the
- * smallest correct adaptation, not a relaxation of the production
- * privilege model.
+ * Ingestion subsystem) and vektra_simulation (added in the Heat Exposure
+ * Engine subsystem) — a deliberate, test-harness-only deviation from
+ * the real deployment model. In production, the API server, ingestion
+ * CLIs, and the simulation CLI are separate OS processes, each
+ * connecting as its own narrowly-scoped role
+ * (db/docker/03-create-app-role.sh only ever provisions the
+ * vektra_backend_api membership real deployments use); that separation
+ * is the actual least-privilege enforcement point and is untouched.
+ * This test harness is one process exercising API-role-, ingestion-role-,
+ * and simulation-role-scoped repository code across the same suite, and
+ * Postgres roles support multiple simultaneous memberships — granting
+ * all three to the one test login role is the smallest correct
+ * adaptation, not a relaxation of the production privilege model.
  */
 
 export const CONNECTION_INFO_PATH = path.join(__dirname, '.test-db-connection.json');
@@ -87,7 +88,8 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     '-c',
     `CREATE ROLE ${loginUser} LOGIN PASSWORD '${loginPassword}';
      GRANT vektra_backend_api TO ${loginUser};
-     GRANT vektra_ingestion TO ${loginUser};`,
+     GRANT vektra_ingestion TO ${loginUser};
+     GRANT vektra_simulation TO ${loginUser};`,
   ]);
 
   const info: TestDbConnectionInfo = {

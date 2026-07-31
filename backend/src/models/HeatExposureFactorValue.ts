@@ -20,3 +20,19 @@ export interface HeatExposureFactorValue {
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
+
+/**
+ * Input shape for creating a HeatExposureFactorValue (Heat Exposure
+ * Engine subsystem — the only writer, matching db/migrations/0014's
+ * INSERT grant to vektra_simulation). The CHECK (is_computable OR
+ * factor_value IS NULL) constraint means a not-computable factor must be
+ * created with factorValue omitted/null — enforced by the database, not
+ * re-validated here.
+ */
+export interface CreateHeatExposureFactorValueInput {
+  readonly resultId: string;
+  readonly factorKey: FactorKey;
+  readonly factorValue?: number | null;
+  readonly isComputable: boolean;
+  readonly notes?: string | null;
+}

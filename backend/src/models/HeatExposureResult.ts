@@ -18,3 +18,16 @@ export interface HeatExposureResult {
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
+
+/**
+ * Input shape for creating a HeatExposureResult (Heat Exposure Engine
+ * subsystem — the only writer, matching db/migrations/0014's INSERT
+ * grant to vektra_simulation). indexValue is always omitted/null here:
+ * see this subsystem's engineering review for why the composite index
+ * is never computed by this implementation (Section 18).
+ */
+export interface CreateHeatExposureResultInput {
+  readonly runId: string;
+  readonly buildingId: string;
+  readonly indexValue?: number | null;
+}
