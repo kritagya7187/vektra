@@ -6,3 +6,5 @@ export { resolveLogLevelForStatus } from './logLevel';
 export type { LogLevelForStatus } from './logLevel';
 export { corsOptionsDelegate } from './corsOptions';
 export { buildRateLimiter } from './rateLimiter';
+export { validateRequest } from './validateRequest';
+export type { RequestSchemas } from './validateRequest';
