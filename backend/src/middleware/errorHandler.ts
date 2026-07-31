@@ -1,16 +1,8 @@
 import type { NextFunction, Request, Response } from 'express';
 import { AppError, InternalServerError, ValidationError, isAppError } from '../errors';
 import { rootLogger } from '../logging';
+import type { ApiErrorResponse } from '../types';
 import { resolveLogLevelForStatus } from './logLevel';
-
-interface ErrorResponseBody {
-  readonly error: {
-    readonly code: string;
-    readonly message: string;
-    readonly requestId: string | null;
-    readonly details: unknown;
-  };
-}
 
 /**
  * express.json() (registered in app.ts) throws this well-known,
@@ -71,7 +63,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     'request failed',
   );
 
-  const body: ErrorResponseBody = {
+  const body: ApiErrorResponse = {
     error: {
       code: appError.code,
       message: appError.message,

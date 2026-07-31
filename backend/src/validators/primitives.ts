@@ -56,8 +56,16 @@ export const isoTimestampSchema = z
   .datetime({ offset: true, message: 'must be an ISO-8601 timestamp' })
   .transform((value) => new Date(value));
 
-export function createEnumSchema<T extends [string, ...string[]]>(values: T) {
-  return z.enum(values, {
+/**
+ * Accepts a readonly tuple, not just a mutable one: this function only
+ * reads `values`, never mutates it, so it should accept the readonly
+ * tuples `as const` produces (e.g. types/enums.ts's domain enums) without
+ * forcing every caller to cast. z.enum() itself still wants a mutable
+ * tuple internally — the cast is contained here, once, rather than
+ * pushed out to every call site.
+ */
+export function createEnumSchema<T extends readonly [string, ...string[]]>(values: T) {
+  return z.enum(values as unknown as [T[number], ...T[number][]], {
     errorMap: () => ({ message: `must be one of: ${values.join(', ')}` }),
   });
 }
