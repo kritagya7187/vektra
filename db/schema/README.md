@@ -1,7 +1,7 @@
 # Conceptual Data Model Documentation
 
-Entities: Building, EnvironmentalRasterAsset, MeteorologicalObservation, SimulationRun, HeatExposureResult, Scenario, DataProvenanceRecord.
+Entities: `data_source`, `DataProvenanceRecord`, `Building`, `EnvironmentalRasterAsset`, `MeteorologicalObservation`, `SimulationRun`, `simulation_run_input_dataset`, `Scenario`, `ScenarioOverride`, `HeatExposureResult`, `heat_exposure_factor_value`.
 
 EDD reference: Section 16.
 
-Status: placeholder — no implementation yet.
+See [`ER_DIAGRAM.md`](./ER_DIAGRAM.md) for the full entity-relationship diagram, and [`../README.md`](../README.md) for the complete table-by-table, relationship-by-relationship, index-by-index explanation.
