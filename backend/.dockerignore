@@ -1,0 +1,21 @@
+# Keeps the build context small and prevents host-specific or generated
+# artifacts from ever entering the image — "no unnecessary build
+# artifacts."
+node_modules
+dist
+coverage
+tests
+*.log
+
+# Secrets must never enter a build context / image layer, even
+# transiently (Section 33: "Secrets management: environment variables or
+# a secrets manager, never hardcoded values").
+.env
+.env.*
+!.env.example
+
+# Tooling / VCS noise irrelevant to the image
+.git
+.gitignore
+.vscode
+*.md

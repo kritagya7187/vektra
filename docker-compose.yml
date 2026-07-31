@@ -1,21 +1,132 @@
-# VEKTRA docker-compose — structural placeholder only.
-# Services per Section 7 (Modularity) and Section 34 (Deployment Strategy).
-# No build contexts, images, or commands are defined yet.
-
-version: "3.9"
+# VEKTRA docker-compose — Sections 7 (Modularity) and 34 (Deployment
+# Strategy: "Docker Compose for local/development environment
+# orchestration... single-node deployment").
+#
+# Only `db` and `backend` are fully implemented and buildable — the
+# other subsystems (ingestion, simulation, frontend) have no application
+# code yet (Phase 1 scaffolding only: READMEs, no Dockerfile). They stay
+# listed, matching the EDD's proposed architecture, but are gated behind
+# the `not-yet-implemented` profile so the default `docker compose up`
+# only starts what actually exists — `build: ./ingestion` etc. would
+# otherwise fail immediately (no Dockerfile present).
+#
+# Required environment variables (see .env.example): POSTGRES_DB,
+# POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_SUPERUSER_PASSWORD,
+# BACKEND_PORT, LOG_LEVEL. See this subsystem's review for why
+# POSTGRES_USER/PASSWORD (the backend's existing, established meaning:
+# "a login role granted membership in vektra_backend_api, never a
+# superuser") cannot double as the db container's own bootstrap-superuser
+# credential, and why POSTGRES_SUPERUSER_PASSWORD exists.
 
 services:
-  db:            # PostgreSQL + PostGIS — Section 12, 16
-    image: "TBD"
+  db: # PostgreSQL + PostGIS — Section 12, 16
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
+      # Consumed only by db/docker/03-create-app-role.sh, never by the
+      # postgis image's own entrypoint — deliberately NOT named
+      # POSTGRES_USER/POSTGRES_PASSWORD here, which would make the app
+      # role the bootstrap superuser instead of a restricted login role.
+      VEKTRA_APP_DB_USER: ${POSTGRES_USER}
+      VEKTRA_APP_DB_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Run once, in this order, only on first startup of an empty data
+      # volume (docker-entrypoint-initdb.d's own documented behavior) —
+      # the real schema/seed/role-provisioning this project already has,
+      # not a Docker-specific duplicate.
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/seeds/0001_data_sources.sql:/docker-entrypoint-initdb.d/02-seed-data-sources.sql:ro
+      - ./db/docker/03-create-app-role.sh:/docker-entrypoint-initdb.d/03-create-app-role.sh:ro
+    # No ports published to the host — "isolated internal network":
+    # reachable from other containers on vektra_internal only. Use
+    # `docker compose exec db psql ...` for direct local access.
+    networks:
+      - vektra_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
 
-  ingestion:      # Python ETL jobs — Section 10, 14
+  backend: # Node.js + TypeScript API layer — Section 21, 23
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      BACKEND_PORT: ${BACKEND_PORT}
+      # Container-to-container DNS name on vektra_internal, never
+      # localhost/127.0.0.1 inside the container.
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      LOG_LEVEL: ${LOG_LEVEL}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-false}
+      # RATE_LIMIT_WINDOW_MS / RATE_LIMIT_MAX_REQUESTS deliberately NOT
+      # listed here. Discovered during real verification: env.schema.ts's
+      # z.coerce.number() turns an EMPTY STRING into 0 (a JS coercion
+      # quirk — Number("") === 0), which then fails .positive() — not the
+      # same as the variable being genuinely absent, which .optional()
+      # handles correctly. Compose's ${VAR:-} substitution always
+      # produces a value (empty string when VAR is unset), so it can
+      # never represent "absent" for these two — only actually omitting
+      # the keys does. This is a deployment-config fix, not an
+      # application bug: env.schema.ts's validation is correct given
+      # RATE_LIMIT_ENABLED defaults to false, both are unused. An
+      # operator enabling rate limiting in this stack must add both keys
+      # here explicitly with real values.
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    networks:
+      - vektra_internal
+    depends_on:
+      # condition: service_healthy, not the bare form — startup ordering
+      # is not "assume db is up because it started first," it's "wait
+      # until db's own healthcheck (pg_isready) actually passes," which
+      # (per docker-entrypoint-initdb.d's documented behavior) only
+      # happens after 01/02/03-*.sql above have already completed.
+      db:
+        condition: service_healthy
+    # Second, independent mechanism (not relying on depends_on alone):
+    # if the backend ever does start before Postgres is truly reachable,
+    # src/server.ts's existing startup health check (Server Bootstrap
+    # subsystem, unmodified here) exits 1 rather than serving traffic
+    # against a broken connection — Docker's own supervisor retries via
+    # this policy.
+    restart: on-failure
+    # Runs tini as PID 1 for correct SIGTERM forwarding and zombie
+    # reaping — see Dockerfile's own note on why exec-form CMD alone
+    # isn't sufficient.
+    init: true
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  ingestion: # Python ETL jobs — Section 10, 14
     build: ./ingestion
+    profiles: ["not-yet-implemented"]
 
-  simulation:     # Deterministic Heat Exposure Index engine — Section 17
+  simulation: # Deterministic Heat Exposure Index engine — Section 17
     build: ./simulation
+    profiles: ["not-yet-implemented"]
 
-  backend:        # Node.js + TypeScript API layer — Section 21, 23
-    build: ./backend
-
-  frontend:       # TypeScript + CesiumJS client — Section 20, 22
+  frontend: # TypeScript + CesiumJS client — Section 20, 22
     build: ./frontend
+    profiles: ["not-yet-implemented"]
+
+networks:
+  vektra_internal:
+    driver: bridge
+
+volumes:
+  pgdata:
