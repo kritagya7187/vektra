@@ -54,6 +54,15 @@ export interface AppConfig {
     readonly timeoutMs: number;
     readonly maxRetries: number;
   };
+  readonly remoteSensing: {
+    readonly sentinel2ApiUrl: string;
+    readonly landsatApiUrl: string;
+    readonly esaWorldCoverApiUrl: string;
+    readonly srtmDemApiUrl: string;
+    readonly openMeteoApiUrl: string;
+    readonly timeoutMs: number;
+    readonly maxRetries: number;
+  };
 }
 
 function buildRateLimitConfig(): RateLimitConfig {
@@ -92,5 +101,14 @@ export const config: AppConfig = Object.freeze({
     apiUrl: env.OVERPASS_API_URL,
     timeoutMs: env.OVERPASS_TIMEOUT,
     maxRetries: env.OVERPASS_MAX_RETRIES,
+  }),
+  remoteSensing: Object.freeze({
+    sentinel2ApiUrl: env.SENTINEL2_API_URL,
+    landsatApiUrl: env.LANDSAT_API_URL,
+    esaWorldCoverApiUrl: env.ESA_WORLDCOVER_API_URL,
+    srtmDemApiUrl: env.SRTM_DEM_API_URL,
+    openMeteoApiUrl: env.OPEN_METEO_API_URL,
+    timeoutMs: env.REMOTE_SENSING_TIMEOUT,
+    maxRetries: env.REMOTE_SENSING_MAX_RETRIES,
   }),
 });

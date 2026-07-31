@@ -1,5 +1,5 @@
 import type { Database } from '../database';
-import type { EnvironmentalRasterAsset } from '../models';
+import type { CreateEnvironmentalRasterAssetInput, EnvironmentalRasterAsset } from '../models';
 import type { RasterDataSourceCode } from '../types';
 import type {
   EnvironmentalRasterAssetRepository as EnvironmentalRasterAssetRepositoryContract,
@@ -76,6 +76,44 @@ export class EnvironmentalRasterAssetRepositoryImpl
       executor,
     );
     return rows.map(mapRow);
+  }
+
+  /**
+   * Remote Sensing Ingestion subsystem — the only writer
+   * (db/migrations/0014 grants INSERT on environmental_raster_asset to
+   * vektra_ingestion only). spatial_extent is a plain Polygon (not
+   * MultiPolygon like building.geom_wgs84) — a scene/tile bounding
+   * footprint, per migration 0006. Same ST_MakeValid() +
+   * CHECK (ST_IsValid(...)) pattern as BuildingRepository.create() —
+   * see that method's own note for why.
+   */
+  async create(
+    input: CreateEnvironmentalRasterAssetInput,
+    executor?: Database,
+  ): Promise<EnvironmentalRasterAsset> {
+    const row = await this.queryOne<EnvironmentalRasterAssetRow>(
+      'EnvironmentalRasterAssetRepository.create',
+      `INSERT INTO environmental_raster_asset
+         (source_code, acquisition_date, crs, resolution_m, storage_location, spatial_extent, provenance_id)
+       VALUES ($1, $2, $3, $4, $5, ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON($6), 4326)), $7)
+       RETURNING ${COLUMNS}`,
+      [
+        input.sourceCode,
+        input.acquisitionDate,
+        input.crs,
+        input.resolutionM,
+        input.storageLocation,
+        JSON.stringify(input.spatialExtent),
+        input.provenanceId,
+      ],
+      executor,
+    );
+    if (!row) {
+      throw new Error(
+        'EnvironmentalRasterAssetRepository.create: INSERT RETURNING produced no row.',
+      );
+    }
+    return mapRow(row);
   }
 }
 

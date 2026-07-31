@@ -1,5 +1,5 @@
 import type { Database } from '../database';
-import type { MeteorologicalObservation } from '../models';
+import type { CreateMeteorologicalObservationInput, MeteorologicalObservation } from '../models';
 import type { MeteorologicalDataSourceCode } from '../types';
 import type {
   ListOptions,
@@ -76,6 +76,43 @@ export class MeteorologicalObservationRepositoryImpl
       executor,
     );
     return rows.map(mapRow);
+  }
+
+  /**
+   * Remote Sensing Ingestion subsystem — the only writer
+   * (db/migrations/0014 grants INSERT on meteorological_observation to
+   * vektra_ingestion only). location is a Point (a representative
+   * queried location, migration 0007) — simpler than the MultiPolygon/
+   * Polygon geometry the other two ingestion targets use, but the same
+   * ST_SetSRID(ST_GeomFromGeoJSON(...), 4326) construction.
+   */
+  async create(
+    input: CreateMeteorologicalObservationInput,
+    executor?: Database,
+  ): Promise<MeteorologicalObservation> {
+    const row = await this.queryOne<MeteorologicalObservationRow>(
+      'MeteorologicalObservationRepository.create',
+      `INSERT INTO meteorological_observation
+         (source_code, observation_timestamp, location, variable_name, variable_value, variable_unit, provenance_id)
+       VALUES ($1, $2, ST_SetSRID(ST_GeomFromGeoJSON($3), 4326), $4, $5, $6, $7)
+       RETURNING ${COLUMNS}`,
+      [
+        input.sourceCode,
+        input.observationTimestamp,
+        JSON.stringify(input.location),
+        input.variableName,
+        input.variableValue,
+        input.variableUnit,
+        input.provenanceId,
+      ],
+      executor,
+    );
+    if (!row) {
+      throw new Error(
+        'MeteorologicalObservationRepository.create: INSERT RETURNING produced no row.',
+      );
+    }
+    return mapRow(row);
   }
 }
 

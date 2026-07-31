@@ -1,7 +1,6 @@
 import type { Logger } from 'pino';
 import { config } from '../config';
 import { database as defaultDatabase, type Database } from '../database';
-import { isAppError } from '../errors';
 import { rootLogger } from '../logging';
 import {
   buildingRepository as defaultBuildingRepository,
@@ -22,6 +21,7 @@ import {
   parseOverpassResponse,
 } from './osm/parseOverpassResponse';
 import { buildBuildingFootprintQuery } from './osm/overpassQueryBuilder';
+import { insertWithSavepointIsolation } from './shared/savepointBatch';
 import type { IngestionArea, IngestionCandidate, IngestionSummary, SkippedFeature } from './types';
 
 /**
@@ -52,13 +52,6 @@ function describeSourceProduct(area: IngestionArea): string {
     return `bbox:${minLon},${minLat},${maxLon},${maxLat}`;
   }
   return `area:${area.areaName}`;
-}
-
-function describeFailureReason(err: unknown): string {
-  // Only ever an already-safe AppError message (never a raw driver
-  // error) — matches "never expose persistence details" everywhere else
-  // in this codebase.
-  return isAppError(err) ? err.message : 'insert failed';
 }
 
 /**
@@ -149,13 +142,12 @@ export class OsmIngestionService extends BaseService {
         );
         this.logger.info({ provenanceId: provenance.provenanceId }, 'provenance record created');
 
-        let inserted = 0;
-        const skippedInTx: SkippedFeature[] = [];
-
-        for (const { candidate, geoJson } of toInsert) {
-          await tx.query(`SAVEPOINT ${BUILDING_SAVEPOINT}`);
-          try {
-            await this.buildingRepository.create(
+        const { succeeded, skipped: insertSkipped } = await insertWithSavepointIsolation({
+          tx,
+          items: toInsert,
+          savepointName: BUILDING_SAVEPOINT,
+          insertOne: ({ candidate, geoJson }, txExecutor) =>
+            this.buildingRepository.create(
               {
                 osmId: candidate.osmId,
                 osmType: candidate.osmType,
@@ -166,25 +158,25 @@ export class OsmIngestionService extends BaseService {
                 geomWgs84: geoJson,
                 provenanceId: provenance.provenanceId,
               },
-              tx,
-            );
-            await tx.query(`RELEASE SAVEPOINT ${BUILDING_SAVEPOINT}`);
-            inserted += 1;
-          } catch (err) {
-            await tx.query(`ROLLBACK TO SAVEPOINT ${BUILDING_SAVEPOINT}`);
-            const reason = describeFailureReason(err);
+              txExecutor,
+            ),
+          onSkip: ({ candidate }, reason): SkippedFeature => ({
+            osmId: candidate.osmId,
+            osmType: candidate.osmType,
+            reason,
+          }),
+          logSkip: ({ candidate }, reason) => {
             this.logger.warn(
               { osmId: candidate.osmId, osmType: candidate.osmType, reason },
               'skipped: insert failed',
             );
-            skippedInTx.push({ osmId: candidate.osmId, osmType: candidate.osmType, reason });
-          }
-        }
+          },
+        });
 
         return {
           provenanceId: provenance.provenanceId,
-          insertedCount: inserted,
-          insertSkipped: skippedInTx,
+          insertedCount: succeeded.length,
+          insertSkipped,
         };
       },
     );

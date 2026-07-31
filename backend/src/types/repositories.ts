@@ -3,6 +3,8 @@ import type {
   Building,
   CreateBuildingInput,
   CreateDataProvenanceRecordInput,
+  CreateEnvironmentalRasterAssetInput,
+  CreateMeteorologicalObservationInput,
   CreateScenarioInput,
   CreateScenarioOverrideInput,
   DataProvenanceRecord,
@@ -70,8 +72,23 @@ export interface DataProvenanceRecordRepository
 export interface BuildingRepository
   extends ReadRepository<Building>, WriteRepository<Building, CreateBuildingInput> {}
 
-export type EnvironmentalRasterAssetRepository = ReadRepository<EnvironmentalRasterAsset>;
-export type MeteorologicalObservationRepository = ReadRepository<MeteorologicalObservation>;
+/**
+ * EnvironmentalRasterAssetRepository and MeteorologicalObservationRepository
+ * below gained WriteRepository in the Remote Sensing Ingestion subsystem
+ * — the same "first real caller that needs to write through it" pattern
+ * as BuildingRepository/DataProvenanceRecordRepository in OSM Ingestion.
+ * Both grants (vektra_ingestion INSERT on both tables) already existed
+ * in db/migrations/0014; only the TypeScript method was missing.
+ */
+export interface EnvironmentalRasterAssetRepository
+  extends
+    ReadRepository<EnvironmentalRasterAsset>,
+    WriteRepository<EnvironmentalRasterAsset, CreateEnvironmentalRasterAssetInput> {}
+
+export interface MeteorologicalObservationRepository
+  extends
+    ReadRepository<MeteorologicalObservation>,
+    WriteRepository<MeteorologicalObservation, CreateMeteorologicalObservationInput> {}
 export interface HeatExposureResultRepository extends ReadRepository<HeatExposureResult> {
   /**
    * EDD Section 21: "retrieve scenario-vs-baseline comparison results"

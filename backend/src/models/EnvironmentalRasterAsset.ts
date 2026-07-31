@@ -22,3 +22,19 @@ export interface EnvironmentalRasterAsset {
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
+
+/**
+ * Input shape for creating an EnvironmentalRasterAsset (Remote Sensing
+ * Ingestion subsystem — the only writer, matching
+ * db/migrations/0014's INSERT grant to vektra_ingestion, never
+ * vektra_backend_api). Excludes rasterAssetId/createdAt/updatedAt.
+ */
+export interface CreateEnvironmentalRasterAssetInput {
+  readonly sourceCode: RasterDataSourceCode;
+  readonly acquisitionDate: Date;
+  readonly crs: string;
+  readonly resolutionM: number;
+  readonly storageLocation: string;
+  readonly spatialExtent: GeoJsonPolygon;
+  readonly provenanceId: string;
+}

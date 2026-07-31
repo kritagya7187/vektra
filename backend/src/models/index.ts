@@ -1,8 +1,14 @@
 export type { DataSource } from './DataSource';
 export type { DataProvenanceRecord, CreateDataProvenanceRecordInput } from './DataProvenanceRecord';
 export type { Building, CreateBuildingInput } from './Building';
-export type { EnvironmentalRasterAsset } from './EnvironmentalRasterAsset';
-export type { MeteorologicalObservation } from './MeteorologicalObservation';
+export type {
+  EnvironmentalRasterAsset,
+  CreateEnvironmentalRasterAssetInput,
+} from './EnvironmentalRasterAsset';
+export type {
+  MeteorologicalObservation,
+  CreateMeteorologicalObservationInput,
+} from './MeteorologicalObservation';
 export type { SimulationRun } from './SimulationRun';
 export type { SimulationRunInputDataset } from './SimulationRunInputDataset';
 export type { Scenario, CreateScenarioInput } from './Scenario';

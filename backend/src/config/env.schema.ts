@@ -26,6 +26,29 @@ const DEFAULT_OVERPASS_API_URL = 'https://overpass-api.de/api/interpreter';
 const DEFAULT_OVERPASS_TIMEOUT_MS = 60_000;
 const DEFAULT_OVERPASS_MAX_RETRIES = 3;
 
+// Remote Sensing Ingestion subsystem. Per-source endpoints (a real URL
+// genuinely differs per provider) but ONE shared timeout/retry pair —
+// ten per-source tuning values would be exactly the config duplication
+// this subsystem's own brief warns against. Confidence in these
+// defaults varies and is stated honestly per source in the engineering
+// review: OPEN_METEO_API_URL is the real, verified, public endpoint
+// (archive-api.open-meteo.com, no auth required — confirmed by a real
+// end-to-end run). SENTINEL2/LANDSAT point at the real STAC-hosting
+// domains (Copernicus Data Space / USGS LandsatLook) but require
+// credentials this environment doesn't have, so the exact catalog path
+// is a best-effort default, not a verified one. ESA_WORLDCOVER/SRTM_DEM
+// have no single ubiquitous metadata-query API the way STAC-based
+// sources do — their defaults are placeholders pending real integration
+// research, explicitly flagged as such rather than presented with false
+// confidence.
+const DEFAULT_SENTINEL2_API_URL = 'https://catalogue.dataspace.copernicus.eu/stac';
+const DEFAULT_LANDSAT_API_URL = 'https://landsatlook.usgs.gov/stac-server/search';
+const DEFAULT_ESA_WORLDCOVER_API_URL = 'https://services.terrascope.be/catalogue/products';
+const DEFAULT_SRTM_DEM_API_URL = 'https://portal.opentopography.org/API/globaldem';
+const DEFAULT_OPEN_METEO_API_URL = 'https://archive-api.open-meteo.com/v1/archive';
+const DEFAULT_REMOTE_SENSING_TIMEOUT_MS = 60_000;
+const DEFAULT_REMOTE_SENSING_MAX_RETRIES = 3;
+
 function csvToOrigins(value: string | undefined): string[] {
   if (!value) {
     return [];
@@ -72,6 +95,23 @@ export const envSchema = z
     OVERPASS_API_URL: z.string().url().default(DEFAULT_OVERPASS_API_URL),
     OVERPASS_TIMEOUT: z.coerce.number().int().positive().default(DEFAULT_OVERPASS_TIMEOUT_MS),
     OVERPASS_MAX_RETRIES: z.coerce.number().int().min(0).default(DEFAULT_OVERPASS_MAX_RETRIES),
+
+    // Remote Sensing Ingestion subsystem (EDD FR-2..FR-5, Section 14).
+    SENTINEL2_API_URL: z.string().url().default(DEFAULT_SENTINEL2_API_URL),
+    LANDSAT_API_URL: z.string().url().default(DEFAULT_LANDSAT_API_URL),
+    ESA_WORLDCOVER_API_URL: z.string().url().default(DEFAULT_ESA_WORLDCOVER_API_URL),
+    SRTM_DEM_API_URL: z.string().url().default(DEFAULT_SRTM_DEM_API_URL),
+    OPEN_METEO_API_URL: z.string().url().default(DEFAULT_OPEN_METEO_API_URL),
+    REMOTE_SENSING_TIMEOUT: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(DEFAULT_REMOTE_SENSING_TIMEOUT_MS),
+    REMOTE_SENSING_MAX_RETRIES: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .default(DEFAULT_REMOTE_SENSING_MAX_RETRIES),
   })
   .superRefine((env, ctx) => {
     // Enforced here rather than via .default(): a fallback threshold would

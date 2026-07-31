@@ -21,3 +21,19 @@ export interface MeteorologicalObservation {
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
+
+/**
+ * Input shape for creating a MeteorologicalObservation (Remote Sensing
+ * Ingestion subsystem — the only writer, matching
+ * db/migrations/0014's INSERT grant to vektra_ingestion). Excludes
+ * metObservationId/createdAt/updatedAt.
+ */
+export interface CreateMeteorologicalObservationInput {
+  readonly sourceCode: MeteorologicalDataSourceCode;
+  readonly observationTimestamp: Date;
+  readonly location: GeoJsonPoint;
+  readonly variableName: string;
+  readonly variableValue: number;
+  readonly variableUnit: string;
+  readonly provenanceId: string;
+}
