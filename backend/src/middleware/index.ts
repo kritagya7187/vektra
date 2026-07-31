@@ -4,3 +4,5 @@ export { notFoundHandler } from './notFoundHandler';
 export { errorHandler } from './errorHandler';
 export { resolveLogLevelForStatus } from './logLevel';
 export type { LogLevelForStatus } from './logLevel';
+export { corsOptionsDelegate } from './corsOptions';
+export { buildRateLimiter } from './rateLimiter';

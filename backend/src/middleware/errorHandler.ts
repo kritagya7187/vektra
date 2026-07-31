@@ -13,15 +13,38 @@ interface ErrorResponseBody {
 }
 
 /**
+ * express.json() (registered in app.ts) throws this well-known,
+ * documented shape — SyntaxError with status 400 and
+ * type: 'entity.parse.failed' — when the request body isn't valid JSON.
+ * Recognized here rather than falling through to a generic 500: this is
+ * squarely a client error ("reject malformed JSON"), and the shape is a
+ * stable contract of the body-parser package express.json() wraps, not
+ * an assumption.
+ */
+function isJsonBodyParseError(err: unknown): boolean {
+  return (
+    err instanceof SyntaxError &&
+    'status' in err &&
+    err.status === 400 &&
+    'type' in err &&
+    err.type === 'entity.parse.failed'
+  );
+}
+
+/**
  * Item 5, "unknown error handling": anything that isn't already part of
  * the AppError hierarchy — a thrown string, a plain Error from some
  * third-party dependency, a genuine programming bug — is converted here
- * into a safe InternalServerError. The original value is preserved only
- * via `cause`, for server-side logging.
+ * into a safe InternalServerError, with one recognized exception (JSON
+ * body-parse failures, above). The original value is preserved only via
+ * `cause`, for server-side logging.
  */
 function toAppError(err: unknown): AppError {
   if (isAppError(err)) {
     return err;
+  }
+  if (isJsonBodyParseError(err)) {
+    return new ValidationError('The request body is not valid JSON.', undefined, err);
   }
   return new InternalServerError('An unexpected error occurred.', err);
 }

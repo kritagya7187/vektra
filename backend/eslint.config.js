@@ -14,8 +14,13 @@ const eslintConfigPrettier = require('eslint-config-prettier');
 // `no-console: 'error'` implements the project rule "no console.log
 // throughout the application except during startup" as a linted
 // constraint rather than a convention that has to be remembered — it is
-// then explicitly relaxed only for the files where startup actually
-// happens (src/config, src/server.ts), see the override below.
+// then explicitly relaxed only for src/config, see the override below.
+// src/server.ts is deliberately NOT exempted (Server Bootstrap
+// subsystem): that exemption was written in Foundation, before the
+// Logging subsystem existed, anticipating a chicken-and-egg problem with
+// the logger that no longer exists — rootLogger is fully constructed and
+// usable the instant server.ts runs, so it uses rootLogger for every
+// startup/shutdown line like everything else in this codebase.
 module.exports = tseslint.config(
   {
     ignores: ['dist/**', 'node_modules/**'],
@@ -42,7 +47,7 @@ module.exports = tseslint.config(
     // Environment validation must fail before the structured logger can be
     // constructed (its own log level comes from this validated config), so
     // this is the one place console output is legitimate outside startup.
-    files: ['src/config/**/*.ts', 'src/server.ts'],
+    files: ['src/config/**/*.ts'],
     rules: {
       'no-console': 'off',
     },
