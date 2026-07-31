@@ -63,6 +63,21 @@ export class HeatExposureResultRepositoryImpl
     );
     return rows.map(mapRow);
   }
+
+  /**
+   * EDD Section 21: results "for a given simulation run" — every
+   * building's result for one run, the unit both the "latest baseline
+   * run" query and scenario-vs-baseline comparison are built from.
+   */
+  async listByRunId(runId: string, executor?: Database): Promise<readonly HeatExposureResult[]> {
+    const rows = await this.queryMany<HeatExposureResultRow>(
+      'HeatExposureResultRepository.listByRunId',
+      `SELECT ${COLUMNS} FROM heat_exposure_result WHERE run_id = $1 ORDER BY building_id ASC`,
+      [runId],
+      executor,
+    );
+    return rows.map(mapRow);
+  }
 }
 
 export const heatExposureResultRepository = new HeatExposureResultRepositoryImpl();
