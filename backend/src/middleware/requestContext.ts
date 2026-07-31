@@ -1,22 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { rootLogger } from '../logging';
+import { resolveLogLevelForStatus } from './logLevel';
 
 const REQUEST_ID_HEADER = 'x-request-id';
 const NANOS_PER_MS = 1_000_000;
 const ROUNDING_PRECISION = 100; // 2 decimal places
-
-type CompletionLogLevel = 'info' | 'warn' | 'error';
-
-function resolveCompletionLogLevel(statusCode: number): CompletionLogLevel {
-  if (statusCode >= 500) {
-    return 'error';
-  }
-  if (statusCode >= 400) {
-    return 'warn';
-  }
-  return 'info';
-}
 
 function toRoundedMs(elapsedNanos: bigint): number {
   const ms = Number(elapsedNanos) / NANOS_PER_MS;
@@ -48,7 +37,7 @@ export const requestContext: RequestHandler = (req: Request, res: Response, next
 
   res.on('finish', () => {
     const durationMs = toRoundedMs(process.hrtime.bigint() - startedAt);
-    const level = resolveCompletionLogLevel(res.statusCode);
+    const level = resolveLogLevelForStatus(res.statusCode);
 
     req.log[level](
       {

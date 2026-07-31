@@ -1,4 +1,6 @@
 import type { PoolClient, QueryResultRow } from 'pg';
+import { isAppError } from '../errors';
+import { mapDatabaseError } from './mapDatabaseError';
 import { pool } from './pool';
 
 export interface QueryResult<T> {
@@ -40,14 +42,34 @@ export class PgDatabase implements Database {
     // shape is asserted at this single boundary, where the concrete
     // driver is actually invoked, rather than leaking pg's constraint
     // into the Database interface itself.
-    const result = await pool.query<QueryResultRow>(text, params as unknown[] | undefined);
-    return { rows: result.rows as T[], rowCount: result.rowCount ?? 0 };
+    try {
+      const result = await pool.query<QueryResultRow>(text, params as unknown[] | undefined);
+      return { rows: result.rows as T[], rowCount: result.rowCount ?? 0 };
+    } catch (err) {
+      // Every error out of this method is a safe AppError — never a raw
+      // pg driver error. This is the structural enforcement point for
+      // "database driver errors must never leak outside the database
+      // abstraction."
+      throw mapDatabaseError(err);
+    }
   }
 
   async withClient<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-    const client = await pool.connect();
+    let client: PoolClient;
+    try {
+      client = await pool.connect();
+    } catch (err) {
+      throw mapDatabaseError(err);
+    }
+
     try {
       return await fn(client);
+    } catch (err) {
+      // fn() is caller-provided and may legitimately throw its own
+      // AppError (e.g. a future repository raising NotFoundError inside
+      // the callback) — only genuine driver-shaped errors get wrapped;
+      // an AppError the caller already threw passes through unchanged.
+      throw isAppError(err) ? err : mapDatabaseError(err);
     } finally {
       client.release();
     }
