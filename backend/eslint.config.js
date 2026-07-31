@@ -52,5 +52,46 @@ module.exports = tseslint.config(
       'no-console': 'off',
     },
   },
+  {
+    // tests/ was previously outside eslint's file scope entirely (only
+    // src/**/*.ts was covered) — added in the Testing subsystem, once
+    // tests/ itself became a real deliverable needing "real verification:
+    // TypeScript compilation, ESLint, Formatting" applied to it too.
+    // Points at tsconfig.test.json (src + tests) rather than
+    // tsconfig.json, which deliberately excludes tests/ from the
+    // production build.
+    files: ['tests/**/*.ts'],
+    extends: [...tseslint.configs.recommendedTypeChecked],
+    languageOptions: {
+      parserOptions: {
+        project: './tsconfig.test.json',
+        tsconfigRootDir: __dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+      // Fixture/helper functions and inline test assertions are not held
+      // to the same explicit-return-type discipline as application code
+      // — the test itself is the specification, not a durable public API.
+      '@typescript-eslint/explicit-function-return-type': 'off',
+    },
+  },
+  {
+    // supertest/superagent types Response.body as `any` by design (it
+    // cannot know the shape of an arbitrary HTTP response body) — every
+    // src/ file keeps the full no-unsafe-* ruleset unchanged; this is
+    // scoped only to the one place in this codebase that legitimately
+    // inspects an untyped HTTP response body.
+    files: ['tests/api/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+    },
+  },
   eslintConfigPrettier,
 );

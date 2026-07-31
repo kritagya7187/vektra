@@ -4,6 +4,7 @@
   "private": true,
   "description": "VEKTRA Backend API Layer (EDD Section 21, 23) — REST API mediating all access to the PostGIS canonical/derived storage layer.",
   "main": "dist/server.js",
+  "type": "commonjs",
   "engines": {
     "node": ">=20"
   },
@@ -12,10 +13,15 @@
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
     "typecheck": "tsc --noEmit",
+    "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage && vitest run --config vitest.integration.config.ts --coverage"
   },
   "dependencies": {
     "compression": "^1.7.4",
@@ -34,11 +40,16 @@
     "@types/express": "^4.17.21",
     "@types/node": "^22.7.5",
     "@types/pg": "^8.11.10",
+    "@types/supertest": "^7.2.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^9.12.0",
     "eslint-config-prettier": "^9.1.0",
     "prettier": "^3.3.3",
+    "supertest": "^7.2.2",
+    "testcontainers": "^12.0.4",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3",
-    "typescript-eslint": "^8.8.1"
+    "typescript-eslint": "^8.8.1",
+    "vitest": "^4.1.10"
   }
 }
