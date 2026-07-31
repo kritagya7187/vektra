@@ -2,11 +2,14 @@ export { sendData, sendCreated } from './respond';
 
 export { listDataSources, getDataSourceById } from './DataSourceController';
 export { listDataProvenance, getDataProvenanceById } from './DataProvenanceController';
-export { listBuildings, getBuildingById } from './BuildingController';
+export { listBuildings, getBuildingById, exportBuildings } from './BuildingController';
+export type { BuildingExportQuery } from './BuildingController';
 export {
   listEnvironmentalRasterAssets,
   getEnvironmentalRasterAssetById,
+  exportEnvironmentalRasterAssets,
 } from './EnvironmentalRasterAssetController';
+export type { EnvironmentalRasterAssetExportQuery } from './EnvironmentalRasterAssetController';
 export {
   listMeteorologicalObservations,
   getMeteorologicalObservationById,
@@ -15,16 +18,24 @@ export {
   listSimulationRuns,
   getSimulationRunById,
   getLatestBaselineSimulationRun,
+  exportSimulationRuns,
 } from './SimulationRunController';
+export type { SimulationRunExportQuery } from './SimulationRunController';
 export {
   listHeatExposureResults,
   getHeatExposureResultById,
   getHeatExposureResultFactors,
+  exportHeatExposureResults,
 } from './HeatExposureResultController';
-export type { HeatExposureResultListQuery } from './HeatExposureResultController';
+export type {
+  HeatExposureResultListQuery,
+  HeatExposureResultExportQuery,
+} from './HeatExposureResultController';
 export {
   listScenarios,
   getScenarioById,
   createScenario,
   getScenarioComparison,
+  exportScenarios,
 } from './ScenarioController';
+export type { ScenarioExportQuery } from './ScenarioController';

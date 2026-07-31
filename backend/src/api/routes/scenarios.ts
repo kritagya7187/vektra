@@ -2,12 +2,14 @@ import { Router } from 'express';
 import { z } from 'zod';
 import {
   createScenario,
+  exportScenarios,
   getScenarioById,
   getScenarioComparison,
   listScenarios,
 } from '../../controllers';
 import { asyncHandler, validateRequest } from '../../middleware';
 import {
+  createEnumSchema,
   nonEmptyStringSchema,
   paginationSchema,
   uuidParamSchema,
@@ -38,6 +40,10 @@ const createScenarioBodySchema = z.object({
   overrides: z.array(createScenarioOverrideSchema),
 });
 
+const scenarioExportQuerySchema = z.object({
+  format: createEnumSchema(['csv'] as const),
+});
+
 export const scenariosRouter = Router();
 
 scenariosRouter.get('/', validateRequest({ query: paginationSchema }), asyncHandler(listScenarios));
@@ -46,6 +52,14 @@ scenariosRouter.post(
   validateRequest({ body: createScenarioBodySchema }),
   asyncHandler(createScenario),
 );
+
+// Before '/:id' — same route-ordering hazard noted throughout this API.
+scenariosRouter.get(
+  '/export',
+  validateRequest({ query: scenarioExportQuerySchema }),
+  asyncHandler(exportScenarios),
+);
+
 scenariosRouter.get(
   '/:id',
   validateRequest({ params: uuidParamSchema }),

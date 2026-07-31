@@ -1,4 +1,7 @@
 import type { Response } from 'express';
+import type { CsvColumn } from '../export';
+import { sendCsv, toCsv } from '../export';
+import type { HeatExposureResult } from '../models';
 import { heatExposureResultService } from '../services';
 import type { UuidParam, ValidatedRequest } from '../validators';
 import { sendData } from './respond';
@@ -45,4 +48,38 @@ export async function getHeatExposureResultFactors(
 ): Promise<void> {
   const { factors } = await heatExposureResultService.getWithFactors(req.params.id);
   sendData(res, factors);
+}
+
+export interface HeatExposureResultExportQuery {
+  readonly format: 'csv';
+  readonly runId?: string;
+}
+
+/**
+ * CSV only — heat_exposure_result has no geometry column of its own; see
+ * this subsystem's review for why a building-geometry-joined GeoJSON
+ * view isn't built here.
+ */
+const HEAT_EXPOSURE_RESULT_CSV_COLUMNS: readonly CsvColumn<HeatExposureResult>[] = [
+  { header: 'resultId', value: (r) => r.resultId },
+  { header: 'runId', value: (r) => r.runId },
+  { header: 'buildingId', value: (r) => r.buildingId },
+  { header: 'indexValue', value: (r) => r.indexValue },
+  { header: 'computedAt', value: (r) => r.computedAt },
+  { header: 'createdAt', value: (r) => r.createdAt },
+  { header: 'updatedAt', value: (r) => r.updatedAt },
+];
+
+/** EDD FR-13 / Section 21. Same runId-optional, default-to-latest-baseline behavior as listHeatExposureResults. */
+export async function exportHeatExposureResults(
+  req: ValidatedRequest<unknown, HeatExposureResultExportQuery>,
+  res: Response,
+): Promise<void> {
+  const results = await heatExposureResultService.listForRun(req.query.runId);
+  const csv = toCsv(results, HEAT_EXPOSURE_RESULT_CSV_COLUMNS);
+  req.log.info(
+    { resource: 'heatExposureResult', format: 'csv', rowCount: results.length },
+    'export completed',
+  );
+  sendCsv(res, 'heat-exposure-results.csv', csv);
 }
