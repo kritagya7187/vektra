@@ -16,6 +16,16 @@ import { z } from 'zod';
 const DEFAULT_BACKEND_PORT = 3000;
 const DEFAULT_POSTGRES_PORT = 5432;
 
+// OSM Ingestion subsystem. Real, documented defaults (not arbitrary):
+// overpass-api.de is the actual public endpoint named in the EDD's own
+// risk register (Section "Known Limitations"). 60s/3 retries are
+// technical tuning values (comparable to database/pool.ts's
+// CONNECTION_TIMEOUT_MS), not policy/security thresholds — unlike
+// RATE_LIMIT_*, a default here doesn't hide a business decision.
+const DEFAULT_OVERPASS_API_URL = 'https://overpass-api.de/api/interpreter';
+const DEFAULT_OVERPASS_TIMEOUT_MS = 60_000;
+const DEFAULT_OVERPASS_MAX_RETRIES = 3;
+
 function csvToOrigins(value: string | undefined): string[] {
   if (!value) {
     return [];
@@ -53,6 +63,15 @@ export const envSchema = z
     RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().optional(),
 
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+
+    // OSM Ingestion subsystem (EDD FR-1, Section 14). Only consumed by
+    // the ingestion CLI entry point, never by the HTTP server — declared
+    // here anyway so it goes through the same single validated config
+    // surface as everything else, per this subsystem's own instruction
+    // to reuse (not duplicate) the configuration layer.
+    OVERPASS_API_URL: z.string().url().default(DEFAULT_OVERPASS_API_URL),
+    OVERPASS_TIMEOUT: z.coerce.number().int().positive().default(DEFAULT_OVERPASS_TIMEOUT_MS),
+    OVERPASS_MAX_RETRIES: z.coerce.number().int().min(0).default(DEFAULT_OVERPASS_MAX_RETRIES),
   })
   .superRefine((env, ctx) => {
     // Enforced here rather than via .default(): a fallback threshold would

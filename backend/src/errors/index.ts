@@ -6,3 +6,4 @@ export { NotFoundError } from './NotFoundError';
 export { ConflictError } from './ConflictError';
 export { DatabaseError } from './DatabaseError';
 export { InternalServerError } from './InternalServerError';
+export { ExternalServiceError } from './ExternalServiceError';

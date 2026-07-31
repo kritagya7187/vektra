@@ -1,6 +1,8 @@
 import type { Database } from '../database';
 import type {
   Building,
+  CreateBuildingInput,
+  CreateDataProvenanceRecordInput,
   CreateScenarioInput,
   CreateScenarioOverrideInput,
   DataProvenanceRecord,
@@ -50,8 +52,24 @@ export interface WriteRepository<T, TCreateInput> {
 }
 
 export type DataSourceRepository = ReadRepository<DataSource, string>;
-export type DataProvenanceRecordRepository = ReadRepository<DataProvenanceRecord>;
-export type BuildingRepository = ReadRepository<Building>;
+
+/**
+ * DataProvenanceRecordRepository and BuildingRepository below gained
+ * WriteRepository in the OSM Ingestion subsystem — the first real
+ * caller that needs to write through either. Both were correctly
+ * read-only until now: vektra_backend_api (the API's own role) has no
+ * INSERT on either table; only vektra_ingestion does
+ * (db/migrations/0014). Not a database redesign — the grants already
+ * existed, only the TypeScript method was missing.
+ */
+export interface DataProvenanceRecordRepository
+  extends
+    ReadRepository<DataProvenanceRecord>,
+    WriteRepository<DataProvenanceRecord, CreateDataProvenanceRecordInput> {}
+
+export interface BuildingRepository
+  extends ReadRepository<Building>, WriteRepository<Building, CreateBuildingInput> {}
+
 export type EnvironmentalRasterAssetRepository = ReadRepository<EnvironmentalRasterAsset>;
 export type MeteorologicalObservationRepository = ReadRepository<MeteorologicalObservation>;
 export interface HeatExposureResultRepository extends ReadRepository<HeatExposureResult> {

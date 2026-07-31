@@ -1,5 +1,5 @@
 import type { Database } from '../database';
-import type { Building } from '../models';
+import type { Building, CreateBuildingInput } from '../models';
 import type { OsmType } from '../types';
 import type { BuildingRepository as BuildingRepositoryContract, ListOptions } from '../types';
 import type { GeoJsonMultiPolygon } from '../types/geometry';
@@ -79,6 +79,46 @@ export class BuildingRepositoryImpl extends BaseRepository implements BuildingRe
       executor,
     );
     return rows.map(mapRow);
+  }
+
+  /**
+   * OSM Ingestion subsystem — the only writer (db/migrations/0014 grants
+   * INSERT on building to vektra_ingestion only). geom_utm43n and
+   * footprint_area_sqm are never supplied here: the former is
+   * auto-derived by fn_populate_building_utm_geometry, the latter is a
+   * generated column (db/migrations/0005) — both computed by the
+   * database itself, not this repository.
+   *
+   * ST_MakeValid() wraps the constructed geometry so a topologically
+   * invalid (but structurally sound — closed, non-empty, in-range)
+   * input polygon is repaired by PostGIS's own standard tool rather than
+   * a hand-rolled repair. The existing CHECK (ST_IsValid(geom_wgs84))
+   * constraint is the final backstop: if ST_MakeValid() cannot produce a
+   * valid MultiPolygon, the INSERT itself fails — "reject unrecoverable
+   * geometries" enforced by the schema, not application logic.
+   */
+  async create(input: CreateBuildingInput, executor?: Database): Promise<Building> {
+    const row = await this.queryOne<BuildingRow>(
+      'BuildingRepository.create',
+      `INSERT INTO building (osm_id, osm_type, building_tag_type, name, height_m, building_levels, geom_wgs84, provenance_id)
+       VALUES ($1, $2, $3, $4, $5, $6, ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON($7), 4326)), $8)
+       RETURNING ${COLUMNS}`,
+      [
+        input.osmId,
+        input.osmType,
+        input.buildingTagType,
+        input.name,
+        input.heightM,
+        input.buildingLevels,
+        JSON.stringify(input.geomWgs84),
+        input.provenanceId,
+      ],
+      executor,
+    );
+    if (!row) {
+      throw new Error('BuildingRepository.create: INSERT RETURNING produced no row.');
+    }
+    return mapRow(row);
   }
 }
 

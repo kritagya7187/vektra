@@ -49,6 +49,11 @@ export interface AppConfig {
   readonly logging: {
     readonly level: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
   };
+  readonly overpass: {
+    readonly apiUrl: string;
+    readonly timeoutMs: number;
+    readonly maxRetries: number;
+  };
 }
 
 function buildRateLimitConfig(): RateLimitConfig {
@@ -82,5 +87,10 @@ export const config: AppConfig = Object.freeze({
   rateLimit: Object.freeze(buildRateLimitConfig()),
   logging: Object.freeze({
     level: env.LOG_LEVEL,
+  }),
+  overpass: Object.freeze({
+    apiUrl: env.OVERPASS_API_URL,
+    timeoutMs: env.OVERPASS_TIMEOUT,
+    maxRetries: env.OVERPASS_MAX_RETRIES,
   }),
 });

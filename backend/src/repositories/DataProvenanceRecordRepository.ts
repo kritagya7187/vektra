@@ -1,5 +1,5 @@
 import type { Database } from '../database';
-import type { DataProvenanceRecord } from '../models';
+import type { CreateDataProvenanceRecordInput, DataProvenanceRecord } from '../models';
 import type {
   DataProvenanceRecordRepository as DataProvenanceRecordRepositoryContract,
   ListOptions,
@@ -62,6 +62,40 @@ export class DataProvenanceRecordRepositoryImpl
       executor,
     );
     return rows.map(mapRow);
+  }
+
+  /**
+   * OSM Ingestion subsystem — the only writer (db/migrations/0014 grants
+   * INSERT on data_provenance_record to vektra_ingestion only). A
+   * unique_violation against uq_provenance_batch (source_code,
+   * source_product_identifier, retrieval_timestamp) surfaces as a
+   * ConflictError via the existing mapDatabaseError — no new error
+   * handling needed here.
+   */
+  async create(
+    input: CreateDataProvenanceRecordInput,
+    executor?: Database,
+  ): Promise<DataProvenanceRecord> {
+    const row = await this.queryOne<DataProvenanceRecordRow>(
+      'DataProvenanceRecordRepository.create',
+      `INSERT INTO data_provenance_record
+         (source_code, source_product_identifier, retrieval_timestamp, license, ingestion_pipeline_version, checksum)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING ${COLUMNS}`,
+      [
+        input.sourceCode,
+        input.sourceProductIdentifier,
+        input.retrievalTimestamp,
+        input.license,
+        input.ingestionPipelineVersion,
+        input.checksum ?? null,
+      ],
+      executor,
+    );
+    if (!row) {
+      throw new Error('DataProvenanceRecordRepository.create: INSERT RETURNING produced no row.');
+    }
+    return mapRow(row);
   }
 }
 

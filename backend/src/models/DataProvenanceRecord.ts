@@ -15,3 +15,18 @@ export interface DataProvenanceRecord {
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
+
+/**
+ * Input shape for creating a DataProvenanceRecord (OSM Ingestion
+ * subsystem — the first and only writer, matching
+ * db/migrations/0014's INSERT grant to vektra_ingestion). Excludes
+ * provenanceId/createdAt/updatedAt.
+ */
+export interface CreateDataProvenanceRecordInput {
+  readonly sourceCode: string;
+  readonly sourceProductIdentifier: string;
+  readonly retrievalTimestamp: Date;
+  readonly license: string;
+  readonly ingestionPipelineVersion: string;
+  readonly checksum?: string | null;
+}

@@ -29,3 +29,22 @@ export interface Building {
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
+
+/**
+ * Input shape for creating a Building (OSM Ingestion subsystem — the
+ * first and only writer, matching db/migrations/0014's INSERT grant to
+ * vektra_ingestion, never vektra_backend_api). Excludes
+ * server-generated/derived fields: buildingId, geomUtm43n (auto-derived
+ * by fn_populate_building_utm_geometry), footprintAreaSqm (a generated
+ * column), createdAt/updatedAt.
+ */
+export interface CreateBuildingInput {
+  readonly osmId: number;
+  readonly osmType: OsmType;
+  readonly buildingTagType: string | null;
+  readonly name: string | null;
+  readonly heightM: number | null;
+  readonly buildingLevels: number | null;
+  readonly geomWgs84: GeoJsonMultiPolygon;
+  readonly provenanceId: string;
+}

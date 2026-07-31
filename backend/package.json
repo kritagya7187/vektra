@@ -12,6 +12,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
+    "ingest:osm": "node dist/ingestion/runOsmIngestion.js",
+    "ingest:osm:dev": "tsx src/ingestion/runOsmIngestion.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
     "lint": "eslint .",
