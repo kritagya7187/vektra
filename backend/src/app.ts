@@ -2,6 +2,7 @@ import compression from 'compression';
 import cors from 'cors';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
+import { apiRouter } from './api';
 import { healthRoute } from './health';
 import {
   asyncHandler,
@@ -25,8 +26,8 @@ import {
  * Middleware order (see Subsystem 5 design notes for the full rationale
  * of each position):
  *   requestContext -> helmet -> cors -> compression -> rate limit
- *   (conditional) -> json body parsing -> routes -> notFoundHandler ->
- *   errorHandler (always last)
+ *   (conditional) -> json body parsing -> routes (/health, /api/*) ->
+ *   notFoundHandler -> errorHandler (always last)
  *
  * app.disable('x-powered-by') is not called separately — helmet already
  * removes that header by default; doing it twice would be duplicated
@@ -48,6 +49,7 @@ export function createApp(): Express {
   app.use(express.json());
 
   app.get('/health', asyncHandler(healthRoute));
+  app.use('/api', apiRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
