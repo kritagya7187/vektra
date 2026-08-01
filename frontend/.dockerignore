@@ -1,0 +1,22 @@
+# Keeps the build context small and prevents host-specific or generated
+# artifacts from ever entering the image — mirrors backend/.dockerignore.
+node_modules
+dist
+coverage
+tests
+*.log
+
+# Secrets must never enter a build context / image layer, even
+# transiently (EDD Section 33: "Secrets management: environment
+# variables or a secrets manager, never hardcoded values"). VITE_* build
+# values are passed in as Docker build args (see frontend/Dockerfile),
+# never read from a committed or mounted .env file inside the image.
+.env
+.env.*
+!.env.example
+
+# Tooling / VCS noise irrelevant to the image
+.git
+.gitignore
+.vscode
+*.md

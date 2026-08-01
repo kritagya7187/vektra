@@ -2,21 +2,36 @@
 # Strategy: "Docker Compose for local/development environment
 # orchestration... single-node deployment").
 #
-# Only `db` and `backend` are fully implemented and buildable — the
-# other subsystems (ingestion, simulation, frontend) have no application
-# code yet (Phase 1 scaffolding only: READMEs, no Dockerfile). They stay
-# listed, matching the EDD's proposed architecture, but are gated behind
-# the `not-yet-implemented` profile so the default `docker compose up`
-# only starts what actually exists — `build: ./ingestion` etc. would
-# otherwise fail immediately (no Dockerfile present).
+# Phase 2H (Docker & Deployment): three real, buildable services — `db`,
+# `backend`, `frontend`. This reflects the IMPLEMENTED architecture, not
+# the EDD's original conceptual layout: ingestion (FR-1..FR-5) and
+# simulation (FR-7, FR-9) are NOT separate services here, because they
+# were never built as separate applications. They are TypeScript CLI
+# entry points inside backend/src (backend/src/ingestion/run*.ts,
+# backend/src/simulation/run*.ts, run via `npm run ingest:*` /
+# `npm run simulate:*` — see backend/package.json), compiled into the
+# exact same dist/ this backend image already ships. They are invoked as
+# one-shot commands against the running `backend` image/service, e.g.:
+#
+#   docker compose run --rm backend npm run ingest:osm
+#   docker compose run --rm backend npm run simulate:heat-exposure
+#
+# No `ingestion`/`simulation` service definitions exist below. Adding
+# `build: ./ingestion` / `build: ./simulation` stubs (as a prior phase's
+# compose file did) would point at directories containing no application
+# code and no Dockerfile (ingestion/, simulation/ at repo root remain
+# Phase 1 scaffolding — READMEs only) and would fail immediately, while
+# also misrepresenting where the real, working implementation actually
+# lives.
 #
 # Required environment variables (see .env.example): POSTGRES_DB,
 # POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_SUPERUSER_PASSWORD,
-# BACKEND_PORT, LOG_LEVEL. See this subsystem's review for why
-# POSTGRES_USER/PASSWORD (the backend's existing, established meaning:
-# "a login role granted membership in vektra_backend_api, never a
-# superuser") cannot double as the db container's own bootstrap-superuser
-# credential, and why POSTGRES_SUPERUSER_PASSWORD exists.
+# BACKEND_PORT, LOG_LEVEL, CORS_ALLOWED_ORIGINS, FRONTEND_PORT,
+# VITE_API_BASE_URL, VITE_CESIUM_ION_TOKEN. See this subsystem's review
+# for why POSTGRES_USER/PASSWORD (the backend's existing, established
+# meaning: "a login role granted membership in vektra_backend_api, never
+# a superuser") cannot double as the db container's own bootstrap-
+# superuser credential, and why POSTGRES_SUPERUSER_PASSWORD exists.
 
 services:
   db: # PostgreSQL + PostGIS — Section 12, 16
@@ -112,17 +127,44 @@ services:
       retries: 3
       start_period: 10s
 
-  ingestion: # Python ETL jobs — Section 10, 14
-    build: ./ingestion
-    profiles: ["not-yet-implemented"]
-
-  simulation: # Deterministic Heat Exposure Index engine — Section 17
-    build: ./simulation
-    profiles: ["not-yet-implemented"]
-
   frontend: # TypeScript + CesiumJS client — Section 20, 22
-    build: ./frontend
-    profiles: ["not-yet-implemented"]
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Build-time only (frontend/Dockerfile's own note: Vite compiles
+        # these into the static JS bundle when `vite build` runs, inside
+        # this build step — they are never read again at container
+        # start). VITE_API_BASE_URL must be a URL the END USER'S BROWSER
+        # can reach (the backend's host-published port below), never the
+        # `backend` container-DNS name — a browser cannot resolve that.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        VITE_CESIUM_ION_TOKEN: ${VITE_CESIUM_ION_TOKEN}
+    environment:
+      # Runtime only — the port the `serve` process inside the container
+      # actually listens on (frontend/Dockerfile's CMD). Unrelated to the
+      # VITE_* build args above; matches BACKEND_PORT's existing
+      # dual-purpose pattern (same value used as both the in-container
+      # listen port and the host port mapping below).
+      FRONTEND_PORT: ${FRONTEND_PORT}
+    ports:
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+    # Deliberately NOT on vektra_internal: the frontend is static assets
+    # served to a user's browser, not a container that talks to `db` or
+    # `backend` over the internal network — the browser calls the
+    # backend directly via its host-published port (VITE_API_BASE_URL
+    # above), per the Docker & Deployment engineering review's networking
+    # finding (item 9). Compose places it on its own default network.
+    restart: on-failure
+    # Same signal-handling rationale as `backend` — see frontend/Dockerfile's
+    # own note on why its CMD uses `exec` and still benefits from tini.
+    init: true
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
 networks:
   vektra_internal:

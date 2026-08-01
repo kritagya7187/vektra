@@ -21,6 +21,26 @@
 # Idempotent (IF NOT EXISTS / DO block) even though docker-entrypoint-
 # initdb.d already only runs this once per fresh volume — cheap insurance
 # against a manual re-run.
+#
+# Phase 2H (Docker & Deployment), added after real verification: this
+# role is also granted vektra_ingestion and vektra_simulation, not only
+# vektra_backend_api. Migration 0014 defines three separate group roles
+# because the EDD's ORIGINAL conceptual layout (Section 9, 12) treated
+# ingestion, simulation, and the API as three separate deployed
+# services, each warranting its own minimally-scoped credential. The
+# repository's ACTUAL, approved implementation collapses ingestion and
+# simulation into CLI entry points that run inside this same backend
+# container/image (backend/src/ingestion/run*.ts,
+# backend/src/simulation/run*.ts — see docker-compose.yml's own header
+# comment) — there is only one runtime identity that ever needs to
+# authenticate as any of the three roles, not three. Without this grant,
+# `docker compose run backend npm run ingest:osm` fails with "permission
+# denied for table data_provenance_record" (vektra_backend_api alone
+# only has SELECT on that table) — confirmed by running it. The
+# underlying per-table grants in migration 0014 are unchanged and remain
+# meaningful: if ingestion or simulation were ever split into a genuinely
+# separate deployed process, it could be given its own, more narrowly
+# scoped login role against this same, unmodified schema.
 set -eu
 
 : "${VEKTRA_APP_DB_USER:?VEKTRA_APP_DB_USER must be set}"
@@ -36,4 +56,6 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     \$\$;
 
     GRANT vektra_backend_api TO "${VEKTRA_APP_DB_USER}";
+    GRANT vektra_ingestion TO "${VEKTRA_APP_DB_USER}";
+    GRANT vektra_simulation TO "${VEKTRA_APP_DB_USER}";
 EOSQL
