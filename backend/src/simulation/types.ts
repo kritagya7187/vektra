@@ -28,3 +28,30 @@ export interface HeatExposureSimulationSummary {
   readonly inputDatasetProvenanceIds: readonly string[];
   readonly durationMs: number;
 }
+
+/**
+ * Caller-supplied parameters for one Scenario Simulation Engine
+ * execution. Unlike HeatExposureSimulationInput, there is no
+ * osm/met-provenance pinning here — a scenario run always reuses the
+ * exact input dataset versions its baseline run already recorded (EDD
+ * Section 11: "applies overlay on top of the referenced baseline
+ * snapshot"), never independently resolved.
+ */
+export interface ScenarioSimulationInput {
+  readonly scenarioId: string;
+  /** Which Open-Meteo variable meteorological_context reports, same meaning as HeatExposureSimulationInput's field. Ignored if the baseline run has no recorded Open-Meteo input dataset. */
+  readonly meteorologicalVariableName?: string;
+}
+
+export interface ScenarioSimulationSummary {
+  readonly scenarioId: string;
+  readonly runId: string;
+  readonly baselineRunId: string;
+  readonly status: SimulationRunStatus;
+  readonly buildingCount: number;
+  readonly resultCount: number;
+  readonly inputDatasetProvenanceIds: readonly string[];
+  readonly overrideCount: number;
+  readonly buildingsWithOverridesCount: number;
+  readonly durationMs: number;
+}

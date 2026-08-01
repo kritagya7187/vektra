@@ -171,7 +171,20 @@ export interface SimulationRunRepository
 }
 
 export interface ScenarioRepository
-  extends ReadRepository<Scenario>, WriteRepository<Scenario, CreateScenarioInput> {}
+  extends ReadRepository<Scenario>, WriteRepository<Scenario, CreateScenarioInput> {
+  /**
+   * Scenario Simulation Engine subsystem: the ONE update
+   * fn_guard_scenario_update permits — transitioning derived_run_id from
+   * NULL to a value exactly once (db/migrations/0010). Matches
+   * db/migrations/0014's column-level grant, GRANT UPDATE (derived_run_id)
+   * ON scenario TO vektra_simulation only — never a general update.
+   */
+  updateDerivedRunId(
+    scenarioId: string,
+    derivedRunId: string,
+    executor?: Database,
+  ): Promise<Scenario>;
+}
 
 export interface ScenarioOverrideRepository extends WriteRepository<
   ScenarioOverride,

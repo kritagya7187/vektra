@@ -12,7 +12,7 @@ import {
   simulationRunRepository as defaultSimulationRunRepository,
 } from '../repositories';
 import { BaseService } from '../services';
-import type { Building, DataProvenanceRecord, MeteorologicalObservation } from '../models';
+import type { DataProvenanceRecord, MeteorologicalObservation } from '../models';
 import type {
   BuildingRepository,
   DataProvenanceRecordRepository,
@@ -22,8 +22,8 @@ import type {
   SimulationRunInputDatasetRepository,
   SimulationRunRepository,
 } from '../types';
-import { FACTOR_KEYS } from '../types';
-import { computeFactor, type MeteorologicalReading } from './factors';
+import type { MeteorologicalReading } from './factors';
+import { persistHeatExposureResults } from './persistResults';
 import type { HeatExposureSimulationInput, HeatExposureSimulationSummary } from './types';
 
 /**
@@ -31,17 +31,22 @@ import type { HeatExposureSimulationInput, HeatExposureSimulationSummary } from 
  * changes — independent of backend/package.json's own version, same
  * convention as INGESTION_PIPELINE_VERSION in both ingestion subsystems
  * (Section 27: a run's code_version identifies the code that produced
- * it, not the deploying service).
+ * it, not the deploying service). Exported so ScenarioSimulationService
+ * can tag scenario runs with the identical code version — both run
+ * types execute the exact same computeFactor logic, so the version
+ * string describing that logic must not drift between two separately
+ * maintained literals.
  */
-const SIMULATION_ENGINE_CODE_VERSION = '1.0.0';
+export const SIMULATION_ENGINE_CODE_VERSION = '1.0.0';
 
 /**
  * No configurable simulation parameters exist yet beyond the caller's
  * own inputs (which variable/which provenance batch) — there is no rich
  * "configuration object" to version. This constant is the honest
  * placeholder until one exists; a caller may still override it per run.
+ * Exported for the same reason as SIMULATION_ENGINE_CODE_VERSION above.
  */
-const DEFAULT_CONFIGURATION_VERSION = '1.0.0';
+export const DEFAULT_CONFIGURATION_VERSION = '1.0.0';
 
 const OSM_SOURCE_CODE = 'osm_overpass';
 const OPEN_METEO_SOURCE_CODE = 'open_meteo';
@@ -165,11 +170,10 @@ export class HeatExposureSimulationService extends BaseService {
           await this.simulationRunInputDatasetRepository.create({ runId, provenanceId }, tx);
         }
 
-        for (const building of buildings) {
-          await this.computeAndPersistBuildingResult(runId, building, meteorologicalReading, tx);
-        }
-
-        return buildings.length;
+        return persistHeatExposureResults(tx, runId, buildings, meteorologicalReading, {
+          heatExposureResultRepository: this.heatExposureResultRepository,
+          heatExposureFactorValueRepository: this.heatExposureFactorValueRepository,
+        });
       });
 
       await this.simulationRunRepository.updateStatus(runId, {
@@ -264,32 +268,6 @@ export class HeatExposureSimulationService extends BaseService {
     }
 
     return { provenance, observation };
-  }
-
-  private async computeAndPersistBuildingResult(
-    runId: string,
-    building: Building,
-    meteorologicalReading: MeteorologicalReading | null,
-    tx: Database,
-  ): Promise<void> {
-    const result = await this.heatExposureResultRepository.create(
-      { runId, buildingId: building.buildingId },
-      tx,
-    );
-
-    for (const factorKey of FACTOR_KEYS) {
-      const computation = computeFactor(factorKey, meteorologicalReading);
-      await this.heatExposureFactorValueRepository.create(
-        {
-          resultId: result.resultId,
-          factorKey,
-          factorValue: computation.factorValue,
-          isComputable: computation.isComputable,
-          notes: computation.notes,
-        },
-        tx,
-      );
-    }
   }
 }
 

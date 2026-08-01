@@ -81,6 +81,34 @@ export class ScenarioRepositoryImpl extends BaseRepository implements ScenarioRe
     }
     return mapRow(row);
   }
+
+  /**
+   * Scenario Simulation Engine subsystem — the only writer of this
+   * column (db/migrations/0014 grants UPDATE (derived_run_id) ON
+   * scenario to vektra_simulation only, a column-level grant). Only
+   * derived_run_id appears in the SET clause, matching that narrow
+   * grant exactly; fn_guard_scenario_update (migration 0010) rejects
+   * this if derived_run_id is already set, and rejects any attempt to
+   * change any other column.
+   */
+  async updateDerivedRunId(
+    scenarioId: string,
+    derivedRunId: string,
+    executor?: Database,
+  ): Promise<Scenario> {
+    const row = await this.queryOne<ScenarioRow>(
+      'ScenarioRepository.updateDerivedRunId',
+      `UPDATE scenario SET derived_run_id = $2 WHERE scenario_id = $1 RETURNING ${COLUMNS}`,
+      [scenarioId, derivedRunId],
+      executor,
+    );
+    if (!row) {
+      throw new Error(
+        `ScenarioRepository.updateDerivedRunId: no scenario found for '${scenarioId}'.`,
+      );
+    }
+    return mapRow(row);
+  }
 }
 
 export const scenarioRepository = new ScenarioRepositoryImpl();

@@ -20,6 +20,8 @@
     "ingest:meteo:dev": "tsx src/ingestion/runMeteorologicalIngestion.ts",
     "simulate:heat-exposure": "node dist/simulation/runHeatExposureSimulation.js",
     "simulate:heat-exposure:dev": "tsx src/simulation/runHeatExposureSimulation.ts",
+    "simulate:scenario": "node dist/simulation/runScenarioSimulation.js",
+    "simulate:scenario:dev": "tsx src/simulation/runScenarioSimulation.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
     "lint": "eslint .",
