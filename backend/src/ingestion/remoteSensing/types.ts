@@ -7,7 +7,14 @@ export interface RasterQuery {
   readonly dateRange?: { readonly from: Date; readonly to: Date };
 }
 
-/** What every raster source's client extracts — metadata only, never raster pixels (this subsystem's own brief, item 6). */
+/**
+ * What every raster source's client extracts. Phase 3 Milestone 2
+ * (Remote Sensing Foundation): storageLocation is now a REAL local file
+ * path a real raster (AOI-clipped GeoTIFF, real pixel data) was written
+ * to by rasterStorage.ts's writeRasterFile() — not, as in the earlier
+ * metadata-only implementation, an unresolved upstream href. checksum is
+ * a real SHA-256 of those written bytes, not a placeholder.
+ */
 export interface RasterDatasetMetadata {
   readonly sourceProductIdentifier: string;
   readonly acquisitionDate: Date;

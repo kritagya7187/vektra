@@ -2,7 +2,7 @@ import type { Database } from '../database';
 import type { Building } from '../models';
 import type { HeatExposureFactorValueRepository, HeatExposureResultRepository } from '../types';
 import { FACTOR_KEYS } from '../types';
-import { computeFactor, type MeteorologicalReading } from './factors';
+import { computeFactor, type MeteorologicalReading, type RasterInputs } from './factors';
 
 /**
  * Extracted from HeatExposureSimulationService's own private
@@ -34,6 +34,7 @@ export async function persistHeatExposureResults(
   buildings: readonly Building[],
   meteorologicalReading: MeteorologicalReading | null,
   deps: PersistHeatExposureResultsDeps,
+  rasterInputs: RasterInputs = {},
 ): Promise<number> {
   for (const building of buildings) {
     const result = await deps.heatExposureResultRepository.create(
@@ -42,7 +43,17 @@ export async function persistHeatExposureResults(
     );
 
     for (const factorKey of FACTOR_KEYS) {
-      const computation = computeFactor(factorKey, meteorologicalReading);
+      // Sequential, not Promise.all: each factor reads a raster file from
+      // disk (rasterSampling.ts) — bounding real I/O concurrency here is
+      // deliberate, matching insertWithSavepointIsolation's own "process
+      // sequentially" reasoning elsewhere in this codebase, not an
+      // oversight.
+      const computation = await computeFactor(
+        factorKey,
+        meteorologicalReading,
+        building.geomWgs84,
+        rasterInputs,
+      );
       await deps.heatExposureFactorValueRepository.create(
         {
           resultId: result.resultId,

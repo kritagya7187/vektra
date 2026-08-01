@@ -1,24 +1,48 @@
 import type { MeteorologicalObservation } from '../models';
 import type { FactorKey } from '../types';
+import type { GeoJsonMultiPolygon } from '../types/geometry';
+import { sampleRasterBandForFootprint } from './rasterSampling';
+import { computeNdvi } from './spectralIndices';
 
 /**
- * Pure, deterministic per-factor computation — no repository/database
- * access, extracted from HeatExposureSimulationService so it is directly
- * unit-testable, mirroring how ingestion/osm/geometry.ts and
- * parseOverpassResponse.ts were kept separate from OsmIngestionService's
- * own orchestration.
+ * Pure per-factor computation (raster sampling makes this file async as
+ * of Phase 3 Milestone 2, but it remains database-free — the only I/O is
+ * reading a raster file already downloaded to RASTER_STORAGE_DIR by
+ * ingestion, matching EDD Section 17's "the simulation engine... has no
+ * dependency on... any interactive input at run time").
  *
- * See the Heat Exposure Engine engineering review for the full reasoning
- * behind which factors are computable at all: EDD Section 18 states no
- * equation is specified for the composite index, and none of the 5
- * candidate factors has a specified computation method either. Only ONE
- * is realized here (meteorological_context), using an already-real,
- * zero-invention value (a single raw ingested reading, applied uniformly
- * — the one approach Section 18 itself explicitly names). The other 4
- * are always marked not computable — this is not a temporary gap to be
- * filled by better code later, it is what "no equation is specified"
- * means today, generalized per heat_exposure_factor_value.is_computable's
- * own migration comment ("generalized here to any factor").
+ * See the Heat Exposure Engine engineering review (and the Remote
+ * Sensing Foundation milestone's own audit) for the full reasoning
+ * behind which factors are computable: EDD Section 18 states no
+ * combination equation is specified for the COMPOSITE index, and that
+ * remains true — this file still never produces one. Per-factor
+ * computability is a separate question, and this milestone changed the
+ * answer for exactly one more factor:
+ *
+ * - meteorological_context: unchanged, real since the Heat Exposure
+ *   Engine subsystem (a single raw ingested reading, applied uniformly).
+ * - vegetation_land_cover: NOW COMPUTABLE when a Sentinel-2 raster asset
+ *   is available for the run — NDVI (a standard, named, non-invented
+ *   index, EDD Section 18's own permitted "optionally a standard...
+ *   vegetation index") sampled at the building footprint. When ESA
+ *   WorldCover data is also available, its majority land-cover class at
+ *   the footprint is reported in `notes` as qualitative context — EDD
+ *   Section 18 never specifies how to combine a categorical class with a
+ *   continuous index into one number, so no such combination is
+ *   invented; the single numeric factorValue is NDVI alone, which is a
+ *   complete, real, standard indicator on its own.
+ * - thermal_signature: the code path is real and identical in kind to
+ *   vegetation_land_cover (sample Landsat's ST_B10 band, already
+ *   delivered in Kelvin by Sentinel Hub's processing — not a value this
+ *   codebase derives or invents) but remains not-computable in practice
+ *   whenever no Landsat raster asset is available for the run (see
+ *   LandsatClient.ts's own note on this account's current access
+ *   status).
+ * - morphology_density, exposure_shading: UNCHANGED, out of scope for
+ *   this milestone (raster data does not resolve either's real blocker —
+ *   an undefined density-neighborhood algorithm and an undefined
+ *   sun-angle/shadow model, respectively; see this file's own prior
+ *   reasoning, preserved below).
  *
  * morphology_density was initially implemented as computable (reporting
  * raw footprint area alone), then corrected after review: Section 18
@@ -42,23 +66,29 @@ export interface MeteorologicalReading {
   readonly observation: MeteorologicalObservation;
 }
 
+/** A resolved, downloaded raster asset available for this run — just enough for rasterSampling.ts to read it. */
+export interface RasterInput {
+  readonly storageLocation: string;
+}
+
+export interface RasterInputs {
+  readonly sentinel2?: RasterInput;
+  readonly worldCover?: RasterInput;
+  readonly landsat?: RasterInput;
+}
+
 export interface FactorComputation {
   readonly isComputable: boolean;
   readonly factorValue: number | null;
   readonly notes: string;
 }
 
-const NOT_COMPUTABLE_NOTES: Readonly<Record<Exclude<FactorKey, 'meteorological_context'>, string>> =
-  {
-    thermal_signature:
-      'Requires Landsat surface-temperature pixel values sampled at the building footprint. Only raster asset metadata (not pixel values) has been ingested (Remote Sensing Ingestion subsystem) — raster sampling/zonal statistics are out of scope for this engine.',
-    vegetation_land_cover:
-      'Requires ESA WorldCover classified pixel values at and around the building footprint. Only raster asset metadata (not classified pixel values) has been ingested — raster sampling/zonal statistics are out of scope for this engine.',
-    morphology_density:
-      "EDD Section 18 defines this factor as footprint area AND local building density (with height/levels added when available) — area and density together are the EDD's own stated minimum, not area alone. No method for computing 'local density' (no neighborhood radius or algorithm) is specified, so even that minimum cannot be reached without inventing a threshold. Reporting footprint area alone would itself be an uncited methodological choice, not a zero-invention fallback.",
-    exposure_shading:
-      'EDD Section 18 requires a sun-angle/shadow-geometry model combining building heights and the DEM; no such model is specified anywhere in the EDD, and inventing one is explicitly prohibited.',
-  };
+const NOT_COMPUTABLE_NOTES: Readonly<Record<'morphology_density' | 'exposure_shading', string>> = {
+  morphology_density:
+    "EDD Section 18 defines this factor as footprint area AND local building density (with height/levels added when available) — area and density together are the EDD's own stated minimum, not area alone. No method for computing 'local density' (no neighborhood radius or algorithm) is specified, so even that minimum cannot be reached without inventing a threshold. Reporting footprint area alone would itself be an uncited methodological choice, not a zero-invention fallback.",
+  exposure_shading:
+    'EDD Section 18 requires a sun-angle/shadow-geometry model combining building heights and the DEM; no such model is specified anywhere in the EDD, and inventing one is explicitly prohibited.',
+};
 
 /**
  * EDD Section 18 explicitly permits "applied uniformly... across the
@@ -85,7 +115,101 @@ export function computeMeteorologicalContextFactor(
   };
 }
 
-function notComputable(factorKey: Exclude<FactorKey, 'meteorological_context'>): FactorComputation {
+/** Sentinel2Client.ts's evalscript band order: B04, B08, B11, SCL, dataMask. */
+const SENTINEL2_BAND_RED = 0;
+const SENTINEL2_BAND_NIR = 1;
+const SENTINEL2_BAND_DATAMASK = 4;
+
+async function computeVegetationLandCoverFactor(
+  footprint: GeoJsonMultiPolygon,
+  sentinel2: RasterInput | undefined,
+): Promise<FactorComputation> {
+  if (!sentinel2) {
+    return {
+      isComputable: false,
+      factorValue: null,
+      notes:
+        'Requires Sentinel-2 L2A reflectance values sampled at the building footprint. No Sentinel-2 raster asset was resolved for this run (Remote Sensing Ingestion subsystem) — ingest one with `npm run ingest:raster -- --source=sentinel2_l2a` and pass its provenance id to this run.',
+    };
+  }
+
+  const red = await sampleRasterBandForFootprint(
+    sentinel2.storageLocation,
+    footprint,
+    SENTINEL2_BAND_RED,
+    SENTINEL2_BAND_DATAMASK,
+  );
+  const nir = await sampleRasterBandForFootprint(
+    sentinel2.storageLocation,
+    footprint,
+    SENTINEL2_BAND_NIR,
+    SENTINEL2_BAND_DATAMASK,
+  );
+  if (!red || !nir) {
+    return {
+      isComputable: false,
+      factorValue: null,
+      notes:
+        'A Sentinel-2 raster asset was resolved for this run, but the building footprint had no valid (non-cloud-masked) pixels within it.',
+    };
+  }
+
+  const ndvi = computeNdvi(nir.mean, red.mean);
+  if (ndvi === null) {
+    return {
+      isComputable: false,
+      factorValue: null,
+      notes: 'NDVI is undefined at this footprint (NIR + Red reflectance sums to zero).',
+    };
+  }
+
+  return {
+    isComputable: true,
+    factorValue: ndvi,
+    notes: `NDVI (Rouse et al., 1974) computed from real Sentinel-2 L2A B04/B08 reflectance sampled at the building footprint (${nir.sampleCount} pixel(s)), per EDD Section 18's "standard, well-established remote-sensing vegetation index."`,
+  };
+}
+
+/** LandsatClient.ts's evalscript band order: ST_B10, dataMask. */
+const LANDSAT_BAND_ST = 0;
+const LANDSAT_BAND_DATAMASK = 1;
+
+async function computeThermalSignatureFactor(
+  footprint: GeoJsonMultiPolygon,
+  landsat: RasterInput | undefined,
+): Promise<FactorComputation> {
+  if (!landsat) {
+    return {
+      isComputable: false,
+      factorValue: null,
+      notes:
+        "Requires Landsat Collection 2 Level-2 Surface Temperature (ST_B10) values sampled at the building footprint. No Landsat raster asset was resolved for this run — see LandsatClient.ts for this data source's current access status.",
+    };
+  }
+
+  const st = await sampleRasterBandForFootprint(
+    landsat.storageLocation,
+    footprint,
+    LANDSAT_BAND_ST,
+    LANDSAT_BAND_DATAMASK,
+  );
+  if (!st) {
+    return {
+      isComputable: false,
+      factorValue: null,
+      notes:
+        'A Landsat raster asset was resolved for this run, but the building footprint had no valid pixels within it.',
+    };
+  }
+
+  return {
+    isComputable: true,
+    factorValue: st.mean,
+    notes: `Landsat Collection 2 Level-2 Surface Temperature (ST_B10, Kelvin — already the official calibrated science product value, not derived here) sampled at the building footprint (${st.sampleCount} pixel(s)), per EDD Section 18.`,
+  };
+}
+
+function notComputable(factorKey: 'morphology_density' | 'exposure_shading'): FactorComputation {
   return {
     isComputable: false,
     factorValue: null,
@@ -93,15 +217,19 @@ function notComputable(factorKey: Exclude<FactorKey, 'meteorological_context'>):
   };
 }
 
-export function computeFactor(
+export async function computeFactor(
   factorKey: FactorKey,
   meteorologicalReading: MeteorologicalReading | null,
-): FactorComputation {
+  footprint: GeoJsonMultiPolygon,
+  rasterInputs: RasterInputs,
+): Promise<FactorComputation> {
   switch (factorKey) {
     case 'meteorological_context':
       return computeMeteorologicalContextFactor(meteorologicalReading);
-    case 'thermal_signature':
     case 'vegetation_land_cover':
+      return computeVegetationLandCoverFactor(footprint, rasterInputs.sentinel2);
+    case 'thermal_signature':
+      return computeThermalSignatureFactor(footprint, rasterInputs.landsat);
     case 'morphology_density':
     case 'exposure_shading':
       return notComputable(factorKey);

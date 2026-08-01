@@ -63,6 +63,19 @@ export class EnvironmentalRasterAssetRepositoryImpl
     return row ? mapRow(row) : null;
   }
 
+  async findByProvenanceId(
+    provenanceId: string,
+    executor?: Database,
+  ): Promise<EnvironmentalRasterAsset | null> {
+    const row = await this.queryOne<EnvironmentalRasterAssetRow>(
+      'EnvironmentalRasterAssetRepository.findByProvenanceId',
+      `SELECT ${COLUMNS} FROM environmental_raster_asset WHERE provenance_id = $1`,
+      [provenanceId],
+      executor,
+    );
+    return row ? mapRow(row) : null;
+  }
+
   async list(
     options?: ListOptions,
     executor?: Database,

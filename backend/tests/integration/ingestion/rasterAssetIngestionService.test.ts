@@ -106,6 +106,9 @@ describe('RasterAssetIngestionService (real DB, stubbed raster client)', () => {
       findById: environmentalRasterAssetRepository.findById.bind(
         environmentalRasterAssetRepository,
       ),
+      findByProvenanceId: environmentalRasterAssetRepository.findByProvenanceId.bind(
+        environmentalRasterAssetRepository,
+      ),
       list: environmentalRasterAssetRepository.list.bind(environmentalRasterAssetRepository),
       create: async (input, executor) => {
         callCount += 1;

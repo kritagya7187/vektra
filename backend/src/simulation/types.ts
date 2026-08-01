@@ -16,6 +16,19 @@ export interface HeatExposureSimulationInput {
   readonly meteorologicalProvenanceId?: string;
   /** Which Open-Meteo variable (e.g. "temperature_2m") the meteorological_context factor reports. Omitting this marks that factor not computable for the whole run — never silently defaulted to a specific variable. */
   readonly meteorologicalVariableName?: string;
+  /**
+   * Phase 3 Milestone 2 (Remote Sensing Foundation). Pins the exact
+   * Sentinel-2/ESA WorldCover/Landsat raster asset batch to use for
+   * vegetation_land_cover / thermal_signature. Unlike osmProvenanceId,
+   * these have no fallback-to-"most recent" default failure mode that
+   * blocks the run — if omitted (or nothing has been ingested for that
+   * source yet), the corresponding factor is simply marked not
+   * computable, exactly like meteorological_context when no variable
+   * name is given.
+   */
+  readonly sentinel2ProvenanceId?: string;
+  readonly worldCoverProvenanceId?: string;
+  readonly landsatProvenanceId?: string;
   /** Overrides the default configuration_version tag. */
   readonly configurationVersion?: string;
 }

@@ -42,13 +42,16 @@ interface RasterClientDeps {
 const RASTER_CLIENT_FACTORIES: Readonly<
   Record<string, (deps: RasterClientDeps) => RasterDatasetClient>
 > = {
-  sentinel2_l2a: (deps) =>
-    createSentinel2Client({ ...deps, apiUrl: config.remoteSensing.sentinel2ApiUrl }),
-  landsat_c2_l2: (deps) =>
-    createLandsatClient({ ...deps, apiUrl: config.remoteSensing.landsatApiUrl }),
-  esa_worldcover: (deps) =>
-    createEsaWorldCoverClient({ ...deps, apiUrl: config.remoteSensing.esaWorldCoverApiUrl }),
-  srtm_dem: (deps) => createSrtmDemClient({ ...deps, apiUrl: config.remoteSensing.srtmDemApiUrl }),
+  // Each client now reads its own provider-specific URL(s)/credentials
+  // directly from config (Copernicus Process API, the public WorldCover
+  // S3 bucket, OpenTopography) rather than taking a single apiUrl here —
+  // Sentinel-2 and Landsat each genuinely need two real endpoints
+  // (OData discovery + Process API extraction), which a single apiUrl
+  // parameter could no longer represent honestly.
+  sentinel2_l2a: (deps) => createSentinel2Client(deps),
+  landsat_c2_l2: (deps) => createLandsatClient(deps),
+  esa_worldcover: (deps) => createEsaWorldCoverClient(deps),
+  srtm_dem: (deps) => createSrtmDemClient(deps),
 };
 
 function parseDate(flagValue: string, flagName: string): Date {

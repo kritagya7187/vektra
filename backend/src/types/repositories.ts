@@ -113,7 +113,23 @@ export interface BuildingRepository
 export interface EnvironmentalRasterAssetRepository
   extends
     ReadRepository<EnvironmentalRasterAsset>,
-    WriteRepository<EnvironmentalRasterAsset, CreateEnvironmentalRasterAssetInput> {}
+    WriteRepository<EnvironmentalRasterAsset, CreateEnvironmentalRasterAssetInput> {
+  /**
+   * Phase 3 Milestone 2 (Remote Sensing Foundation) — the raster
+   * ingestion subsystem's per-scene provenance model (one
+   * DataProvenanceRecord per scene/tile, RasterAssetIngestionService's
+   * own docs) means this is always at most one row, mirroring how the
+   * Heat Exposure Engine already resolves a single meteorological
+   * provenance via findLatestBySourceCode — a real, necessary lookup for
+   * the simulation engine to find which downloaded raster file to
+   * sample for a given resolved provenance batch, not present until this
+   * milestone because nothing needed it before.
+   */
+  findByProvenanceId(
+    provenanceId: string,
+    executor?: Database,
+  ): Promise<EnvironmentalRasterAsset | null>;
+}
 
 export interface MeteorologicalObservationRepository
   extends

@@ -55,13 +55,27 @@ export interface AppConfig {
     readonly maxRetries: number;
   };
   readonly remoteSensing: {
-    readonly sentinel2ApiUrl: string;
-    readonly landsatApiUrl: string;
-    readonly esaWorldCoverApiUrl: string;
+    readonly sentinelHubProcessApiUrl: string;
+    readonly esaWorldCoverS3BaseUrl: string;
     readonly srtmDemApiUrl: string;
     readonly openMeteoApiUrl: string;
     readonly timeoutMs: number;
     readonly maxRetries: number;
+  };
+  readonly copernicus: {
+    readonly clientId: string | undefined;
+    readonly clientSecret: string | undefined;
+    readonly tokenUrl: string;
+  };
+  readonly openTopography: {
+    readonly apiKey: string | undefined;
+  };
+  readonly usgsEros: {
+    readonly username: string | undefined;
+    readonly applicationToken: string | undefined;
+  };
+  readonly rasterStorage: {
+    readonly dir: string | undefined;
   };
 }
 
@@ -103,12 +117,26 @@ export const config: AppConfig = Object.freeze({
     maxRetries: env.OVERPASS_MAX_RETRIES,
   }),
   remoteSensing: Object.freeze({
-    sentinel2ApiUrl: env.SENTINEL2_API_URL,
-    landsatApiUrl: env.LANDSAT_API_URL,
-    esaWorldCoverApiUrl: env.ESA_WORLDCOVER_API_URL,
+    sentinelHubProcessApiUrl: env.SENTINEL_HUB_PROCESS_API_URL,
+    esaWorldCoverS3BaseUrl: env.ESA_WORLDCOVER_S3_BASE_URL,
     srtmDemApiUrl: env.SRTM_DEM_API_URL,
     openMeteoApiUrl: env.OPEN_METEO_API_URL,
     timeoutMs: env.REMOTE_SENSING_TIMEOUT,
     maxRetries: env.REMOTE_SENSING_MAX_RETRIES,
+  }),
+  copernicus: Object.freeze({
+    clientId: env.COPERNICUS_CLIENT_ID,
+    clientSecret: env.COPERNICUS_CLIENT_SECRET,
+    tokenUrl: env.COPERNICUS_TOKEN_URL,
+  }),
+  openTopography: Object.freeze({
+    apiKey: env.OPENTOPOGRAPHY_API_KEY,
+  }),
+  usgsEros: Object.freeze({
+    username: env.USGS_EROS_USERNAME,
+    applicationToken: env.USGS_EROS_TOKEN,
+  }),
+  rasterStorage: Object.freeze({
+    dir: env.RASTER_STORAGE_DIR,
   }),
 });

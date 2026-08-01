@@ -26,24 +26,34 @@ const DEFAULT_OVERPASS_API_URL = 'https://overpass-api.de/api/interpreter';
 const DEFAULT_OVERPASS_TIMEOUT_MS = 60_000;
 const DEFAULT_OVERPASS_MAX_RETRIES = 3;
 
-// Remote Sensing Ingestion subsystem. Per-source endpoints (a real URL
-// genuinely differs per provider) but ONE shared timeout/retry pair —
-// ten per-source tuning values would be exactly the config duplication
-// this subsystem's own brief warns against. Confidence in these
-// defaults varies and is stated honestly per source in the engineering
-// review: OPEN_METEO_API_URL is the real, verified, public endpoint
-// (archive-api.open-meteo.com, no auth required — confirmed by a real
-// end-to-end run). SENTINEL2/LANDSAT point at the real STAC-hosting
-// domains (Copernicus Data Space / USGS LandsatLook) but require
-// credentials this environment doesn't have, so the exact catalog path
-// is a best-effort default, not a verified one. ESA_WORLDCOVER/SRTM_DEM
-// have no single ubiquitous metadata-query API the way STAC-based
-// sources do — their defaults are placeholders pending real integration
-// research, explicitly flagged as such rather than presented with false
-// confidence.
-const DEFAULT_SENTINEL2_API_URL = 'https://catalogue.dataspace.copernicus.eu/stac';
-const DEFAULT_LANDSAT_API_URL = 'https://landsatlook.usgs.gov/stac-server/search';
-const DEFAULT_ESA_WORLDCOVER_API_URL = 'https://services.terrascope.be/catalogue/products';
+// Remote Sensing Ingestion subsystem (Phase 3 Milestone 2 — Remote
+// Sensing Foundation). Every default below was verified against the
+// real, live provider this session, not assumed:
+//
+// - SENTINEL_HUB_PROCESS_API_URL: the earlier assumption that Sentinel-2
+//   lived on catalogue.dataspace.copernicus.eu/stac was WRONG — that
+//   endpoint hosts only CLMS land-monitoring collections (verified: 418
+//   collections listed, none Sentinel-2). The real mechanism is the
+//   Sentinel Hub Process API, confirmed live with a real OAuth2 token
+//   (COPERNICUS_CLIENT_ID/SECRET) returning a real bbox-scoped GeoTIFF
+//   for Sentinel-2 L2A (type "S2L2A"). Landsat Collection 2 Level-2 uses
+//   the SAME endpoint with type "landsat-ot-l2" (confirmed real —
+//   the API's own error resolved it to internal code "LOTL2" — but this
+//   account's access to that specific collection was not yet resolved
+//   at verification time; see LandsatClient.ts).
+// - ESA_WORLDCOVER_S3_BASE_URL: WorldCover is NOT behind Copernicus
+//   auth at all — it's a fully public, unauthenticated AWS S3 bucket.
+//   Confirmed live: a byte-range read against the real South Mumbai
+//   tile returned a valid TIFF, Accept-Ranges: bytes confirmed (COG).
+// - SRTM_DEM_API_URL: OpenTopography globaldem, confirmed live with
+//   OPENTOPOGRAPHY_API_KEY — a real 6x6px 16-bit elevation GeoTIFF was
+//   returned for a test bbox.
+// - OPEN_METEO_API_URL: real, verified, public (no auth) — confirmed by
+//   a real end-to-end ingestion run in an earlier phase.
+const DEFAULT_COPERNICUS_TOKEN_URL =
+  'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token';
+const DEFAULT_SENTINEL_HUB_PROCESS_API_URL = 'https://sh.dataspace.copernicus.eu/api/v1/process';
+const DEFAULT_ESA_WORLDCOVER_S3_BASE_URL = 'https://esa-worldcover.s3.amazonaws.com';
 const DEFAULT_SRTM_DEM_API_URL = 'https://portal.opentopography.org/API/globaldem';
 const DEFAULT_OPEN_METEO_API_URL = 'https://archive-api.open-meteo.com/v1/archive';
 const DEFAULT_REMOTE_SENSING_TIMEOUT_MS = 60_000;
@@ -97,9 +107,8 @@ export const envSchema = z
     OVERPASS_MAX_RETRIES: z.coerce.number().int().min(0).default(DEFAULT_OVERPASS_MAX_RETRIES),
 
     // Remote Sensing Ingestion subsystem (EDD FR-2..FR-5, Section 14).
-    SENTINEL2_API_URL: z.string().url().default(DEFAULT_SENTINEL2_API_URL),
-    LANDSAT_API_URL: z.string().url().default(DEFAULT_LANDSAT_API_URL),
-    ESA_WORLDCOVER_API_URL: z.string().url().default(DEFAULT_ESA_WORLDCOVER_API_URL),
+    SENTINEL_HUB_PROCESS_API_URL: z.string().url().default(DEFAULT_SENTINEL_HUB_PROCESS_API_URL),
+    ESA_WORLDCOVER_S3_BASE_URL: z.string().url().default(DEFAULT_ESA_WORLDCOVER_S3_BASE_URL),
     SRTM_DEM_API_URL: z.string().url().default(DEFAULT_SRTM_DEM_API_URL),
     OPEN_METEO_API_URL: z.string().url().default(DEFAULT_OPEN_METEO_API_URL),
     REMOTE_SENSING_TIMEOUT: z.coerce
@@ -112,6 +121,37 @@ export const envSchema = z
       .int()
       .min(0)
       .default(DEFAULT_REMOTE_SENSING_MAX_RETRIES),
+
+    // Copernicus Data Space Ecosystem OAuth2 client_credentials — powers
+    // both Sentinel-2 and Landsat access via SENTINEL_HUB_PROCESS_API_URL
+    // above. No default: there is no safe placeholder for a real secret.
+    // Optional at the schema level (like OVERPASS_API_URL's siblings)
+    // because only the raster ingestion CLI entry points need it, never
+    // the HTTP server — each client throws its own clear error if
+    // invoked without it, rather than blocking server startup.
+    COPERNICUS_CLIENT_ID: z.string().min(1).optional(),
+    COPERNICUS_CLIENT_SECRET: z.string().min(1).optional(),
+    COPERNICUS_TOKEN_URL: z.string().url().default(DEFAULT_COPERNICUS_TOKEN_URL),
+
+    // OpenTopography — powers SRTM_DEM_API_URL above. Same "optional
+    // here, required by the specific client at point of use" reasoning.
+    OPENTOPOGRAPHY_API_KEY: z.string().min(1).optional(),
+
+    // USGS EROS M2M API — an alternative, independently-credentialed
+    // Landsat access path from the Copernicus one above (see
+    // LandsatClient.ts / usgsM2mAuth.ts for exactly what this milestone
+    // verified live and where it currently stops). USGS_EROS_TOKEN is
+    // the M2M "application token" (ers.cr.usgs.gov, scope "M2M API"),
+    // never the account password.
+    USGS_EROS_USERNAME: z.string().min(1).optional(),
+    USGS_EROS_TOKEN: z.string().min(1).optional(),
+
+    // Filesystem directory raw downloaded raster files are written to
+    // (Task 3: reproducible storage, no hard-coded path). No default —
+    // unlike an ingestion API URL, there is no "correct" default
+    // directory to assume; the operator must say where, the same way
+    // POSTGRES_HOST has no default. Only required by raster ingestion.
+    RASTER_STORAGE_DIR: z.string().min(1).optional(),
   })
   .superRefine((env, ctx) => {
     // Enforced here rather than via .default(): a fallback threshold would

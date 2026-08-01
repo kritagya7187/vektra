@@ -5,6 +5,7 @@ import { rootLogger } from '../logging';
 import {
   buildingRepository as defaultBuildingRepository,
   dataProvenanceRecordRepository as defaultDataProvenanceRecordRepository,
+  environmentalRasterAssetRepository as defaultEnvironmentalRasterAssetRepository,
   heatExposureFactorValueRepository as defaultHeatExposureFactorValueRepository,
   heatExposureResultRepository as defaultHeatExposureResultRepository,
   meteorologicalObservationRepository as defaultMeteorologicalObservationRepository,
@@ -18,6 +19,7 @@ import type { DataProvenanceRecord } from '../models';
 import type {
   BuildingRepository,
   DataProvenanceRecordRepository,
+  EnvironmentalRasterAssetRepository,
   HeatExposureFactorValueRepository,
   HeatExposureResultRepository,
   MeteorologicalObservationRepository,
@@ -30,13 +32,16 @@ import {
   DEFAULT_CONFIGURATION_VERSION,
   SIMULATION_ENGINE_CODE_VERSION,
 } from './HeatExposureSimulationService';
-import type { MeteorologicalReading } from './factors';
+import type { MeteorologicalReading, RasterInputs } from './factors';
 import { persistHeatExposureResults } from './persistResults';
 import { resolveEffectiveAttributes } from './scenarioOverrides';
 import type { ScenarioSimulationInput, ScenarioSimulationSummary } from './types';
 
 const OSM_SOURCE_CODE = 'osm_overpass';
 const OPEN_METEO_SOURCE_CODE = 'open_meteo';
+const SENTINEL2_SOURCE_CODE = 'sentinel2_l2a';
+const WORLDCOVER_SOURCE_CODE = 'esa_worldcover';
+const LANDSAT_SOURCE_CODE = 'landsat_c2_l2';
 
 export interface ScenarioSimulationServiceDependencies {
   readonly scenarioRepository?: ScenarioRepository;
@@ -46,6 +51,7 @@ export interface ScenarioSimulationServiceDependencies {
   readonly dataProvenanceRecordRepository?: DataProvenanceRecordRepository;
   readonly buildingRepository?: BuildingRepository;
   readonly meteorologicalObservationRepository?: MeteorologicalObservationRepository;
+  readonly environmentalRasterAssetRepository?: EnvironmentalRasterAssetRepository;
   readonly heatExposureResultRepository?: HeatExposureResultRepository;
   readonly heatExposureFactorValueRepository?: HeatExposureFactorValueRepository;
   readonly database?: Database;
@@ -84,6 +90,7 @@ export class ScenarioSimulationService extends BaseService {
   private readonly dataProvenanceRecordRepository: DataProvenanceRecordRepository;
   private readonly buildingRepository: BuildingRepository;
   private readonly meteorologicalObservationRepository: MeteorologicalObservationRepository;
+  private readonly environmentalRasterAssetRepository: EnvironmentalRasterAssetRepository;
   private readonly heatExposureResultRepository: HeatExposureResultRepository;
   private readonly heatExposureFactorValueRepository: HeatExposureFactorValueRepository;
   private readonly database: Database;
@@ -104,6 +111,8 @@ export class ScenarioSimulationService extends BaseService {
     this.buildingRepository = deps.buildingRepository ?? defaultBuildingRepository;
     this.meteorologicalObservationRepository =
       deps.meteorologicalObservationRepository ?? defaultMeteorologicalObservationRepository;
+    this.environmentalRasterAssetRepository =
+      deps.environmentalRasterAssetRepository ?? defaultEnvironmentalRasterAssetRepository;
     this.heatExposureResultRepository =
       deps.heatExposureResultRepository ?? defaultHeatExposureResultRepository;
     this.heatExposureFactorValueRepository =
@@ -139,14 +148,29 @@ export class ScenarioSimulationService extends BaseService {
       );
     }
 
-    const { osmProvenance, meteorologicalProvenance } = await this.resolveBaselineInputDatasets(
-      validatedBaseline.runId,
-    );
+    const {
+      osmProvenance,
+      meteorologicalProvenance,
+      sentinel2Provenance,
+      worldCoverProvenance,
+      landsatProvenance,
+    } = await this.resolveBaselineInputDatasets(validatedBaseline.runId);
+    const sentinel2 = await this.resolveRasterInputFromProvenance(sentinel2Provenance);
+    const worldCover = await this.resolveRasterInputFromProvenance(worldCoverProvenance);
+    const landsat = await this.resolveRasterInputFromProvenance(landsatProvenance);
+    const rasterInputs: RasterInputs = {
+      ...(sentinel2 ? { sentinel2: { storageLocation: sentinel2.storageLocation } } : {}),
+      ...(worldCover ? { worldCover: { storageLocation: worldCover.storageLocation } } : {}),
+      ...(landsat ? { landsat: { storageLocation: landsat.storageLocation } } : {}),
+    };
     this.logger.info(
       {
         baselineRunId: validatedBaseline.runId,
         osmProvenanceId: osmProvenance.provenanceId,
         meteorologicalProvenanceId: meteorologicalProvenance?.provenanceId ?? null,
+        sentinel2ProvenanceId: sentinel2?.provenanceId ?? null,
+        worldCoverProvenanceId: worldCover?.provenanceId ?? null,
+        landsatProvenanceId: landsat?.provenanceId ?? null,
       },
       'baseline selected',
     );
@@ -174,6 +198,9 @@ export class ScenarioSimulationService extends BaseService {
     const inputDatasetProvenanceIds = [
       osmProvenance.provenanceId,
       ...(meteorologicalReading ? [meteorologicalReading.provenanceId] : []),
+      ...(sentinel2 ? [sentinel2.provenanceId] : []),
+      ...(worldCover ? [worldCover.provenanceId] : []),
+      ...(landsat ? [landsat.provenanceId] : []),
     ];
 
     try {
@@ -191,6 +218,7 @@ export class ScenarioSimulationService extends BaseService {
             heatExposureResultRepository: this.heatExposureResultRepository,
             heatExposureFactorValueRepository: this.heatExposureFactorValueRepository,
           },
+          rasterInputs,
         );
 
         await this.scenarioRepository.updateDerivedRunId(found.scenarioId, runId, tx);
@@ -250,6 +278,9 @@ export class ScenarioSimulationService extends BaseService {
   private async resolveBaselineInputDatasets(baselineRunId: string): Promise<{
     readonly osmProvenance: DataProvenanceRecord;
     readonly meteorologicalProvenance: DataProvenanceRecord | null;
+    readonly sentinel2Provenance: DataProvenanceRecord | null;
+    readonly worldCoverProvenance: DataProvenanceRecord | null;
+    readonly landsatProvenance: DataProvenanceRecord | null;
   }> {
     const inputDatasets = await this.simulationRunInputDatasetRepository.listByRunId(baselineRunId);
     const provenanceRecords = await Promise.all(
@@ -260,14 +291,31 @@ export class ScenarioSimulationService extends BaseService {
 
     let osmProvenance: DataProvenanceRecord | null = null;
     let meteorologicalProvenance: DataProvenanceRecord | null = null;
+    let sentinel2Provenance: DataProvenanceRecord | null = null;
+    let worldCoverProvenance: DataProvenanceRecord | null = null;
+    let landsatProvenance: DataProvenanceRecord | null = null;
     for (const record of provenanceRecords) {
       if (record === null) {
         continue;
       }
-      if (record.sourceCode === OSM_SOURCE_CODE) {
-        osmProvenance = record;
-      } else if (record.sourceCode === OPEN_METEO_SOURCE_CODE) {
-        meteorologicalProvenance = record;
+      switch (record.sourceCode) {
+        case OSM_SOURCE_CODE:
+          osmProvenance = record;
+          break;
+        case OPEN_METEO_SOURCE_CODE:
+          meteorologicalProvenance = record;
+          break;
+        case SENTINEL2_SOURCE_CODE:
+          sentinel2Provenance = record;
+          break;
+        case WORLDCOVER_SOURCE_CODE:
+          worldCoverProvenance = record;
+          break;
+        case LANDSAT_SOURCE_CODE:
+          landsatProvenance = record;
+          break;
+        default:
+          break;
       }
     }
 
@@ -277,7 +325,29 @@ export class ScenarioSimulationService extends BaseService {
       );
     }
 
-    return { osmProvenance, meteorologicalProvenance };
+    return {
+      osmProvenance,
+      meteorologicalProvenance,
+      sentinel2Provenance,
+      worldCoverProvenance,
+      landsatProvenance,
+    };
+  }
+
+  /** Mirrors HeatExposureSimulationService's own resolveRasterInput, against an already-resolved (baseline-recorded, never re-resolved) provenance record instead of an explicit-or-latest lookup — same reasoning as resolveMeteorologicalReading's own baseline-only resolution. */
+  private async resolveRasterInputFromProvenance(
+    provenance: DataProvenanceRecord | null,
+  ): Promise<{ readonly provenanceId: string; readonly storageLocation: string } | null> {
+    if (provenance === null) {
+      return null;
+    }
+    const asset = await this.environmentalRasterAssetRepository.findByProvenanceId(
+      provenance.provenanceId,
+    );
+    if (asset === null) {
+      return null;
+    }
+    return { provenanceId: provenance.provenanceId, storageLocation: asset.storageLocation };
   }
 
   private async resolveMeteorologicalReading(
