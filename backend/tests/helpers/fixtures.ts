@@ -30,11 +30,25 @@ export async function createDataProvenanceRecord(
 ): Promise<DataProvenanceRecordFixture> {
   const sourceCode = overrides.sourceCode ?? 'osm_overpass';
   const provenanceId = randomUUID();
+  // source_product_identifier includes a fresh randomUUID() per call (not the
+  // literal 'test-fixture' this used to be) because uq_provenance_batch is a
+  // real, correct production constraint on (source_code,
+  // source_product_identifier, retrieval_timestamp) — db/migrations/0004.
+  // A hardcoded identifier relied on retrieval_timestamp (`new Date()`)
+  // alone to keep every fixture row unique, which is only millisecond-
+  // resolution; a tight loop of many sequential fixture calls (e.g. the 210
+  // buildings in tests/api/exports.test.ts's "large export" test) can call
+  // `new Date()` twice within the same millisecond, violating this real
+  // constraint. Real, observed failure: CI run 30703129158, "duplicate key
+  // value violates unique constraint uq_provenance_batch". The constraint
+  // itself is correct and untouched; only the fixture's uniqueness
+  // guarantee was wrong.
+  const sourceProductIdentifier = `test-fixture-${randomUUID()}`;
   await superuserPool.query(
     `INSERT INTO data_provenance_record
        (provenance_id, source_code, source_product_identifier, retrieval_timestamp, license, ingestion_pipeline_version, checksum)
-     VALUES ($1, $2, 'test-fixture', $3, 'ODbL', 'v0.0.0-test', 'test-checksum')`,
-    [provenanceId, sourceCode, overrides.retrievalTimestamp ?? new Date()],
+     VALUES ($1, $2, $3, $4, 'ODbL', 'v0.0.0-test', 'test-checksum')`,
+    [provenanceId, sourceCode, sourceProductIdentifier, overrides.retrievalTimestamp ?? new Date()],
   );
   return { provenanceId, sourceCode };
 }
