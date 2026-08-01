@@ -15,7 +15,7 @@ describe('GET /api/data-sources (non-UUID text primary key)', () => {
   it('lists seeded data sources in the standard {data} envelope', async () => {
     const res = await testApp().get('/api/data-sources');
     expect(res.status).toBe(200);
-    expect(res.body.data).toHaveLength(6);
+    expect(res.body.data).toHaveLength(7);
   });
 
   it('getById by source_code (not a UUID) succeeds', async () => {

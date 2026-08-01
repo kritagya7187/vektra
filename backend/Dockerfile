@@ -48,6 +48,15 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY healthcheck.js ./healthcheck.js
 
+# Mount point for docker-compose.yml's raster_storage named volume
+# (RASTER_STORAGE_DIR). Created and chowned here, before USER node,
+# so that when Compose mounts an empty named volume over this path it
+# inherits this ownership (Docker's documented behavior for populating
+# a volume from the image directory it overlays) — without this, a
+# fresh named volume defaults to root ownership and the non-root `node`
+# user below could not write downloaded raster files to it.
+RUN mkdir -p /app/raster-storage && chown node:node /app/raster-storage
+
 # The official Node Alpine image already ships a non-root "node" user
 # (uid/gid 1000) for exactly this purpose — creating a second one would
 # be redundant, not more secure.

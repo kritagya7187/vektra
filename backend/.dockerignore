@@ -9,10 +9,15 @@ tests
 
 # Secrets must never enter a build context / image layer, even
 # transiently (Section 33: "Secrets management: environment variables or
-# a secrets manager, never hardcoded values").
+# a secrets manager, never hardcoded values"). secrets/ (GEE service
+# account key) is bind-mounted read-only at container run time
+# (docker-compose.yml), never COPY'd into the image — this entry is a
+# defensive guard against a future `COPY . .` refactor doing so by
+# accident, not a change to how it's currently supplied.
 .env
 .env.*
 !.env.example
+secrets/
 
 # Tooling / VCS noise irrelevant to the image
 .git

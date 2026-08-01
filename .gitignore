@@ -17,6 +17,10 @@ coverage/
 .env.local
 .env.*.local
 
+# Secrets — service account keys, credential JSON files (never committed;
+# e.g. backend/secrets/ holds the GEE service-account key)
+backend/secrets/
+
 # OS
 .DS_Store
 Thumbs.db

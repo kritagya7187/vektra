@@ -19,4 +19,8 @@ INSERT INTO data_source (source_code, display_name, license) VALUES
     ('sentinel2_l2a',  'Sentinel-2 Level-2A (Copernicus Data Space Ecosystem)', 'Free, open — Copernicus data terms'),
     ('landsat_c2_l2',  'Landsat Collection 2 Level-2 (USGS EarthExplorer)',     'Public domain (USGS)'),
     ('esa_worldcover', 'ESA WorldCover',                                       'Free, no restriction on use — attribution required'),
-    ('open_meteo',     'Open-Meteo',                                           'Free for non-commercial use — CC BY 4.0 attribution');
+    ('open_meteo',     'Open-Meteo',                                           'Free for non-commercial use — CC BY 4.0 attribution'),
+    -- Added by migration 0015 (Remote Sensing Strategy Change: Google
+    -- Earth Engine acquisition). ERA5-Land reanalysis, produced by
+    -- ECMWF for the Copernicus Climate Change Service (C3S).
+    ('era5',           'ERA5-Land (ECMWF / Copernicus Climate Change Service)', 'Free — Copernicus Climate Change Service license, attribution required');

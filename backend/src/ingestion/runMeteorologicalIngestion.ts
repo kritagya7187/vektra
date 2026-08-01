@@ -2,18 +2,25 @@ import { config } from '../config';
 import { checkDatabaseHealth } from '../database';
 import { rootLogger } from '../logging';
 import { createOpenMeteoClient } from './remoteSensing/clients/OpenMeteoClient';
+import { createEra5GeeClient } from './remoteSensing/gee/clients/Era5GeeClient';
 import { MeteorologicalIngestionService } from './remoteSensing/MeteorologicalIngestionService';
-import type { MeteorologicalQuery } from './remoteSensing/types';
+import type { MeteorologicalObservationClient, MeteorologicalQuery } from './remoteSensing/types';
 
 /**
  * CLI entry point — same role/reasoning as runOsmIngestion.ts /
- * runRasterIngestion.ts. Only one meteorological source exists
- * (open_meteo), so there is no --source flag to select.
+ * runRasterIngestion.ts. Two meteorological sources exist as of the
+ * Remote Sensing Strategy Change (migration 0015): open_meteo (default,
+ * preserves every existing invocation's behavior exactly) and era5
+ * (Google Earth Engine). --source is optional specifically so no
+ * existing script/scheduler invocation needs updating.
  *
  * Usage:
  *   node dist/ingestion/runMeteorologicalIngestion.js \
  *     --lat=18.9250 --lon=72.8317 --from=2025-01-01 --to=2025-01-07 \
  *     --variables=temperature_2m,relative_humidity_2m
+ *   node dist/ingestion/runMeteorologicalIngestion.js --source=era5 \
+ *     --lat=18.9250 --lon=72.8317 --from=2025-01-01 --to=2025-01-07 \
+ *     --variables=temperature_2m
  *
  * Must be run with POSTGRES_USER/PASSWORD naming a login role granted
  * membership in vektra_ingestion (db/migrations/0014) — same operational
@@ -22,14 +29,28 @@ import type { MeteorologicalQuery } from './remoteSensing/types';
 
 const logger = rootLogger.child({ component: 'ingestion', entry: 'runMeteorologicalIngestion' });
 
+const SOURCE_FLAG = '--source=';
 const LAT_FLAG = '--lat=';
 const LON_FLAG = '--lon=';
 const FROM_FLAG = '--from=';
 const TO_FLAG = '--to=';
 const VARIABLES_FLAG = '--variables=';
+const DEFAULT_SOURCE_CODE = 'open_meteo';
 
-const USAGE =
-  'Usage: runMeteorologicalIngestion --lat=<num> --lon=<num> --from=YYYY-MM-DD --to=YYYY-MM-DD --variables=var1,var2';
+interface MeteorologicalClientDeps {
+  readonly timeoutMs: number;
+  readonly maxRetries: number;
+}
+
+const METEOROLOGICAL_CLIENT_FACTORIES: Readonly<
+  Record<string, (deps: MeteorologicalClientDeps) => MeteorologicalObservationClient>
+> = {
+  open_meteo: (deps) =>
+    createOpenMeteoClient({ apiUrl: config.remoteSensing.openMeteoApiUrl, ...deps }),
+  era5: (deps) => createEra5GeeClient(deps),
+};
+
+const USAGE = `Usage: runMeteorologicalIngestion [--source=<${Object.keys(METEOROLOGICAL_CLIENT_FACTORIES).join('|')}>] --lat=<num> --lon=<num> --from=YYYY-MM-DD --to=YYYY-MM-DD --variables=var1,var2`;
 
 function requireFlag(argv: readonly string[], flag: string): string {
   const arg = argv.find((a) => a.startsWith(flag));
@@ -55,7 +76,15 @@ function parseDate(value: string, flagName: string): Date {
   return date;
 }
 
-function parseArgs(argv: readonly string[]): MeteorologicalQuery {
+function parseArgs(argv: readonly string[]): { sourceCode: string; query: MeteorologicalQuery } {
+  const sourceArg = argv.find((a) => a.startsWith(SOURCE_FLAG));
+  const sourceCode = sourceArg ? sourceArg.slice(SOURCE_FLAG.length) : DEFAULT_SOURCE_CODE;
+  if (!(sourceCode in METEOROLOGICAL_CLIENT_FACTORIES)) {
+    throw new Error(
+      `Unknown --source '${sourceCode}'. Must be one of: ${Object.keys(METEOROLOGICAL_CLIENT_FACTORIES).join(', ')}.`,
+    );
+  }
+
   const latitude = parseCoordinate(requireFlag(argv, LAT_FLAG), '--lat', -90, 90);
   const longitude = parseCoordinate(requireFlag(argv, LON_FLAG), '--lon', -180, 180);
   const from = parseDate(requireFlag(argv, FROM_FLAG), '--from');
@@ -72,13 +101,16 @@ function parseArgs(argv: readonly string[]): MeteorologicalQuery {
     throw new Error('--from must be before --to.');
   }
 
-  return { latitude, longitude, from, to, variables };
+  return { sourceCode, query: { latitude, longitude, from, to, variables } };
 }
 
 async function main(): Promise<void> {
-  const query = parseArgs(process.argv.slice(2));
+  const { sourceCode, query } = parseArgs(process.argv.slice(2));
 
-  logger.info({ nodeEnv: config.nodeEnv, query }, 'meteorological ingestion run starting');
+  logger.info(
+    { nodeEnv: config.nodeEnv, sourceCode, query },
+    'meteorological ingestion run starting',
+  );
 
   const health = await checkDatabaseHealth();
   if (!health.connected || !health.postgis.available) {
@@ -87,8 +119,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const client = createOpenMeteoClient({
-    apiUrl: config.remoteSensing.openMeteoApiUrl,
+  const client = METEOROLOGICAL_CLIENT_FACTORIES[sourceCode]({
     timeoutMs: config.remoteSensing.timeoutMs,
     maxRetries: config.remoteSensing.maxRetries,
   });

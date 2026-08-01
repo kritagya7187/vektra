@@ -18,6 +18,7 @@ Numbered, sequential SQL migrations implementing the database foundation. Apply 
 | `0012_heat_exposure_result.sql` | `heat_exposure_result` |
 | `0013_heat_exposure_factor_value.sql` | `heat_exposure_factor_value` |
 | `0014_roles_and_grants.sql` | least-privilege roles (`vektra_ingestion`, `vektra_simulation`, `vektra_backend_api`) |
+| `0015_era5_meteorological_source.sql` | loosens `meteorological_observation.source_code`'s CHECK to admit `'era5'` alongside `'open_meteo'` (Remote Sensing Strategy Change: Google Earth Engine acquisition) |
 
 No specific migration tool is assumed (e.g. Flyway, node-pg-migrate, `psql` run in sequence) — that choice is deferred to the engineering team, consistent with how the EDD defers the backend framework choice (Section 12). These files are plain SQL and compatible with any of them.
 

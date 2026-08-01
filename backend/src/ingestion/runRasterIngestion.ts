@@ -6,6 +6,10 @@ import { createEsaWorldCoverClient } from './remoteSensing/clients/EsaWorldCover
 import { createLandsatClient } from './remoteSensing/clients/LandsatClient';
 import { createSentinel2Client } from './remoteSensing/clients/Sentinel2Client';
 import { createSrtmDemClient } from './remoteSensing/clients/SrtmDemClient';
+import { createEsaWorldCoverGeeClient } from './remoteSensing/gee/clients/EsaWorldCoverGeeClient';
+import { createLandsatGeeClient } from './remoteSensing/gee/clients/LandsatGeeClient';
+import { createSentinel2GeeClient } from './remoteSensing/gee/clients/Sentinel2GeeClient';
+import { createSrtmDemGeeClient } from './remoteSensing/gee/clients/SrtmDemGeeClient';
 import { RasterAssetIngestionService } from './remoteSensing/RasterAssetIngestionService';
 import type { RasterDatasetClient, RasterQuery } from './remoteSensing/types';
 
@@ -21,6 +25,7 @@ import type { RasterDatasetClient, RasterQuery } from './remoteSensing/types';
  * Usage:
  *   node dist/ingestion/runRasterIngestion.js --source=sentinel2_l2a --bbox=72.80,18.90,72.90,19.00
  *   node dist/ingestion/runRasterIngestion.js --source=landsat_c2_l2 --bbox=... --from=2025-01-01 --to=2025-06-30
+ *   node dist/ingestion/runRasterIngestion.js --source=sentinel2_l2a_copernicus --bbox=...  # direct-provider fallback
  *
  * Must be run with POSTGRES_USER/PASSWORD naming a login role granted
  * membership in vektra_ingestion (db/migrations/0014) — same operational
@@ -42,16 +47,27 @@ interface RasterClientDeps {
 const RASTER_CLIENT_FACTORIES: Readonly<
   Record<string, (deps: RasterClientDeps) => RasterDatasetClient>
 > = {
-  // Each client now reads its own provider-specific URL(s)/credentials
-  // directly from config (Copernicus Process API, the public WorldCover
-  // S3 bucket, OpenTopography) rather than taking a single apiUrl here —
-  // Sentinel-2 and Landsat each genuinely need two real endpoints
-  // (OData discovery + Process API extraction), which a single apiUrl
-  // parameter could no longer represent honestly.
-  sentinel2_l2a: (deps) => createSentinel2Client(deps),
-  landsat_c2_l2: (deps) => createLandsatClient(deps),
-  esa_worldcover: (deps) => createEsaWorldCoverClient(deps),
-  srtm_dem: (deps) => createSrtmDemClient(deps),
+  // Remote Sensing Strategy Change: Google Earth Engine is now the
+  // DEFAULT acquisition mechanism for all 4 sources — each GEE client's
+  // real `sourceCode` field is still exactly one of the 4 DB-valid codes
+  // (e.g. this srtm_dem key's client reports sourceCode: 'srtm_dem'), so
+  // this is a transport swap, not a new database source code. Every GEE
+  // client was live-verified against its direct-provider predecessor
+  // before being promoted to this default key — see each client file's
+  // own doc comment for the real recorded A/B/plausibility result.
+  sentinel2_l2a: (deps) => createSentinel2GeeClient(deps),
+  landsat_c2_l2: (deps) => createLandsatGeeClient(deps),
+  esa_worldcover: (deps) => createEsaWorldCoverGeeClient(deps),
+  srtm_dem: (deps) => createSrtmDemGeeClient(deps),
+  // Direct-provider clients: dormant fallbacks, not deleted. Each was the
+  // default until this migration; kept wired under an explicit key,
+  // trivially reachable if GEE ever has an outage or access issue —
+  // reinstating the old default is a one-line revert of the 4 lines
+  // above, not a code rewrite.
+  sentinel2_l2a_copernicus: (deps) => createSentinel2Client(deps),
+  landsat_c2_l2_copernicus: (deps) => createLandsatClient(deps),
+  esa_worldcover_s3: (deps) => createEsaWorldCoverClient(deps),
+  srtm_dem_opentopography: (deps) => createSrtmDemClient(deps),
 };
 
 function parseDate(flagValue: string, flagName: string): Date {

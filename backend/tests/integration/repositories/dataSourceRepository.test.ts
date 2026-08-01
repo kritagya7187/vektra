@@ -15,10 +15,11 @@ describe('DataSourceRepository (real DB, seeded reference data)', () => {
     expect(row).toBeNull();
   });
 
-  it('list returns all 6 seeded data sources', async () => {
+  it('list returns all 7 seeded data sources', async () => {
     const rows = await dataSourceRepository.list();
-    expect(rows).toHaveLength(6);
+    expect(rows).toHaveLength(7);
     expect(rows.map((r) => r.sourceCode)).toContain('sentinel2_l2a');
+    expect(rows.map((r) => r.sourceCode)).toContain('era5');
   });
 
   it('list respects limit/offset', async () => {

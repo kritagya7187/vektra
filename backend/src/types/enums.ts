@@ -78,8 +78,10 @@ export type RasterDataSourceCode = (typeof RASTER_DATA_SOURCE_CODES)[number];
 
 /**
  * meteorological_observation.source_code CHECK constraint
- * (db/migrations/0007) — also a real database CHECK constraint,
- * constrained to exactly this one value.
+ * (db/migrations/0007, loosened by 0015 to admit 'era5' alongside
+ * 'open_meteo' — Remote Sensing Strategy Change: Google Earth Engine
+ * acquisition) — also a real database CHECK constraint, constrained to
+ * exactly these two values.
  */
-export const METEOROLOGICAL_DATA_SOURCE_CODES = ['open_meteo'] as const;
+export const METEOROLOGICAL_DATA_SOURCE_CODES = ['open_meteo', 'era5'] as const;
 export type MeteorologicalDataSourceCode = (typeof METEOROLOGICAL_DATA_SOURCE_CODES)[number];

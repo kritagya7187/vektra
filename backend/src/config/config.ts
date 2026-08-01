@@ -70,9 +70,9 @@ export interface AppConfig {
   readonly openTopography: {
     readonly apiKey: string | undefined;
   };
-  readonly usgsEros: {
-    readonly username: string | undefined;
-    readonly applicationToken: string | undefined;
+  readonly googleEarthEngine: {
+    readonly serviceAccountKeyPath: string | undefined;
+    readonly projectId: string | undefined;
   };
   readonly rasterStorage: {
     readonly dir: string | undefined;
@@ -132,9 +132,9 @@ export const config: AppConfig = Object.freeze({
   openTopography: Object.freeze({
     apiKey: env.OPENTOPOGRAPHY_API_KEY,
   }),
-  usgsEros: Object.freeze({
-    username: env.USGS_EROS_USERNAME,
-    applicationToken: env.USGS_EROS_TOKEN,
+  googleEarthEngine: Object.freeze({
+    serviceAccountKeyPath: env.GOOGLE_APPLICATION_CREDENTIALS,
+    projectId: env.GOOGLE_CLOUD_PROJECT_ID,
   }),
   rasterStorage: Object.freeze({
     dir: env.RASTER_STORAGE_DIR,

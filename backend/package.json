@@ -22,6 +22,8 @@
     "simulate:heat-exposure:dev": "tsx src/simulation/runHeatExposureSimulation.ts",
     "simulate:scenario": "node dist/simulation/runScenarioSimulation.js",
     "simulate:scenario:dev": "tsx src/simulation/runScenarioSimulation.ts",
+    "verify:gee-auth": "node dist/ingestion/remoteSensing/gee/verifyGeeAuth.js",
+    "verify:gee-auth:dev": "tsx src/ingestion/remoteSensing/gee/verifyGeeAuth.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
     "lint": "eslint .",
@@ -34,6 +36,7 @@
     "test:coverage": "vitest run --config vitest.config.ts --coverage && vitest run --config vitest.integration.config.ts --coverage"
   },
   "dependencies": {
+    "@google/earthengine": "^1.7.37",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

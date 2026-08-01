@@ -71,6 +71,26 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    # Passes every KEY=VALUE line in the root .env straight into the
+    # container's environment, WITHOUT going through ${VAR} substitution
+    # in this file — a key simply absent from .env stays absent in the
+    # container (unlike ${VAR:-} below, which always creates the key,
+    # blank if unset). This is how the Remote Sensing subsystem's own
+    # optional credentials (COPERNICUS_CLIENT_ID/SECRET,
+    # OPENTOPOGRAPHY_API_KEY, USGS_EROS_USERNAME/TOKEN — all
+    # `.optional()` in env.schema.ts, consumed only by the raster
+    # ingestion CLI, never by the always-running HTTP server) reach this
+    # container without risking the same empty-string-coercion crash
+    # documented for RATE_LIMIT_WINDOW_MS/MAX_REQUESTS below — an empty
+    # string fails z.string().min(1) even under .optional(), which would
+    # take down config loading (and therefore the whole server, not just
+    # raster ingestion) for every operator who hasn't set them.
+    # Explicit `environment:` entries below still take precedence over
+    # same-named keys from this file (Compose's documented precedence),
+    # which is why POSTGRES_HOST/PORT etc. below still safely override
+    # whatever host-oriented values happen to also be in .env.
+    env_file:
+      - ./.env
     environment:
       NODE_ENV: production
       BACKEND_PORT: ${BACKEND_PORT}
@@ -84,6 +104,21 @@ services:
       LOG_LEVEL: ${LOG_LEVEL}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-false}
+      # Container-internal path, deliberately NOT ${RASTER_STORAGE_DIR}
+      # from .env — that variable's documented meaning (.env.example) is
+      # a HOST path for `npm run dev` outside Docker, the same
+      # container/host split already established for POSTGRES_HOST
+      # above. Backed by the raster_storage named volume below so
+      # downloaded rasters survive container recreation.
+      RASTER_STORAGE_DIR: /app/raster-storage
+      # Same host/container path split as RASTER_STORAGE_DIR above:
+      # GOOGLE_APPLICATION_CREDENTIALS in .env is a HOST path (for
+      # `npm run dev` outside Docker); this hardcodes the container-side
+      # path the read-only secrets bind mount below actually lands at.
+      # GOOGLE_CLOUD_PROJECT_ID has no host/container split (it's an
+      # opaque id, not a path) so it passes through via env_file above
+      # unmodified, same as COPERNICUS_CLIENT_ID.
+      GOOGLE_APPLICATION_CREDENTIALS: /app/secrets/vektra-urban-heat-cb01f09ca5da.json
       # RATE_LIMIT_WINDOW_MS / RATE_LIMIT_MAX_REQUESTS deliberately NOT
       # listed here. Discovered during real verification: env.schema.ts's
       # z.coerce.number() turns an EMPTY STRING into 0 (a JS coercion
@@ -99,6 +134,18 @@ services:
       # here explicitly with real values.
     ports:
       - "${BACKEND_PORT}:${BACKEND_PORT}"
+    volumes:
+      # Persists downloaded raster files (Task 3: reproducible storage)
+      # across container recreation — same rationale as pgdata below.
+      # Dockerfile pre-creates and chowns this path to the non-root
+      # `node` user before USER node, so an empty named volume mounted
+      # here inherits that ownership (Docker's documented behavior for
+      # populating a volume from the image's own directory contents).
+      - raster_storage:/app/raster-storage
+      # Real GEE service-account JSON key, read-only bind mount — never
+      # baked into the image (see backend/.dockerignore), never
+      # committed (see repo-root .gitignore's backend/secrets/ entry).
+      - ./backend/secrets:/app/secrets:ro
     networks:
       - vektra_internal
     depends_on:
@@ -172,3 +219,4 @@ networks:
 
 volumes:
   pgdata:
+  raster_storage:

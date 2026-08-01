@@ -23,7 +23,11 @@ const eslintConfigPrettier = require('eslint-config-prettier');
 // startup/shutdown line like everything else in this codebase.
 module.exports = tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**'],
+    // Ambient .d.ts files declare third-party surface (e.g. the untyped
+    // @google/earthengine package) using patterns (unknown escape hatches,
+    // no runtime code) that are normal for declaration files but would
+    // otherwise trip the same rules application code is held to.
+    ignores: ['dist/**', 'node_modules/**', '**/*.d.ts'],
   },
   {
     files: ['src/**/*.ts'],

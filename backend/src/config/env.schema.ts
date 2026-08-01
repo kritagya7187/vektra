@@ -137,14 +137,21 @@ export const envSchema = z
     // here, required by the specific client at point of use" reasoning.
     OPENTOPOGRAPHY_API_KEY: z.string().min(1).optional(),
 
-    // USGS EROS M2M API — an alternative, independently-credentialed
-    // Landsat access path from the Copernicus one above (see
-    // LandsatClient.ts / usgsM2mAuth.ts for exactly what this milestone
-    // verified live and where it currently stops). USGS_EROS_TOKEN is
-    // the M2M "application token" (ers.cr.usgs.gov, scope "M2M API"),
-    // never the account password.
-    USGS_EROS_USERNAME: z.string().min(1).optional(),
-    USGS_EROS_TOKEN: z.string().min(1).optional(),
+    // Google Earth Engine (Remote Sensing Strategy Change — GEE becomes
+    // the primary acquisition provider for the 4 raster sources above,
+    // replacing direct-provider calls; those clients remain as dormant
+    // fallbacks). Same "optional here, required by the specific client at
+    // point of use, never blocks the always-on HTTP server" reasoning as
+    // COPERNICUS_CLIENT_ID above. GOOGLE_APPLICATION_CREDENTIALS is
+    // Google's own standard ADC variable name (kept for consistency with
+    // any future @google-cloud/* library), but note: the EE client
+    // library's own authenticateViaPrivateKey() does NOT read this env
+    // var itself — geeSession.ts reads the file at this path and parses
+    // it explicitly. No default: there is no safe placeholder for a real
+    // service-account key path, matching RASTER_STORAGE_DIR's own
+    // "operator must say where" reasoning.
+    GOOGLE_APPLICATION_CREDENTIALS: z.string().min(1).optional(),
+    GOOGLE_CLOUD_PROJECT_ID: z.string().min(1).optional(),
 
     // Filesystem directory raw downloaded raster files are written to
     // (Task 3: reproducible storage, no hard-coded path). No default —
