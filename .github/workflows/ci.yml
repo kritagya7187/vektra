@@ -1,0 +1,179 @@
+name: CI
+
+# VEKTRA Continuous Integration (Phase 2I: End-to-End Testing & CI).
+#
+# Three independent jobs, mirroring this repository's own subsystem
+# boundaries (EDD Section 7, Modularity) rather than one monolithic job:
+# `backend`, `frontend`, and `docker`. Every step below re-runs an
+# existing npm script already defined in backend/package.json or
+# frontend/package.json (typecheck, lint, format:check, test, build) —
+# nothing here is a new check invented for CI; CI is what makes checks
+# that already existed locally run automatically on every push/PR.
+#
+# `docker` depends on `backend` and `frontend` passing first, so CI never
+# spends time building container images for code that fails a basic
+# check.
+#
+# Integration tests (backend job) use testcontainers
+# (backend/tests/helpers/globalSetup.ts), which starts its own disposable
+# postgis/postgis container per run — no Postgres `services:` block is
+# declared below, deliberately: adding one would either go unused (the
+# test suite manages its own container lifecycle already) or require
+# reconciling two different sources of database config for no benefit.
+# GitHub's hosted ubuntu-latest runners ship a running Docker daemon,
+# which is the only thing testcontainers needs.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend — typecheck, lint, format, tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22' # matches backend/Dockerfile's ARG NODE_IMAGE=node:22-alpine
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Type check (src)
+        working-directory: backend
+        run: npm run typecheck
+
+      - name: Type check (tests)
+        working-directory: backend
+        run: npm run typecheck:test
+
+      - name: Lint
+        working-directory: backend
+        run: npm run lint
+
+      - name: Format check
+        working-directory: backend
+        run: npm run format:check
+
+      - name: Unit tests
+        working-directory: backend
+        run: npm run test:unit
+
+      - name: Integration tests
+        working-directory: backend
+        # Spins up its own disposable postgis/postgis:16-3.4 container via
+        # testcontainers (see backend/tests/helpers/globalSetup.ts) —
+        # applies the real db/schema.sql and seed, exactly like every
+        # manual verification run in every prior phase of this project.
+        run: npm run test:integration
+
+      - name: Build
+        working-directory: backend
+        run: npm run build
+
+  frontend:
+    name: Frontend — typecheck, lint, format, tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22' # matches frontend/Dockerfile's ARG NODE_IMAGE=node:22-alpine
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Type check (src)
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Type check (tests)
+        working-directory: frontend
+        run: npm run typecheck:test
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Format check
+        working-directory: frontend
+        run: npm run format:check
+
+      - name: Unit tests
+        working-directory: frontend
+        run: npm run test
+
+      - name: Build
+        working-directory: frontend
+        # VITE_API_BASE_URL / VITE_CESIUM_ION_TOKEN are deliberately NOT
+        # set here. `vite build` only inlines them via static string
+        # replacement — it never executes frontend/src/config.ts's
+        # requireEnv() (that only runs in the browser, at real runtime) —
+        # so a build with both unset still succeeds and still proves the
+        # TypeScript compiles and Rollup bundles correctly. Verified
+        # empirically in Phase 2I: `npm run build` with no .env file and
+        # no environment variables set exits 0. Requiring a real Cesium
+        # ion token as a GitHub Actions secret just to verify the build
+        # compiles would be exactly the kind of unnecessary dependency
+        # this phase's instructions warn against.
+        run: npm run build
+
+  docker:
+    name: Docker & Compose
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    env:
+      # Dummy, non-secret placeholder values. This job only verifies that
+      # docker-compose.yml resolves correctly and that both Dockerfiles
+      # still produce a working image — it never starts the stack, and
+      # the frontend `build` job above already proved a real Cesium ion
+      # token isn't required for that verification either.
+      POSTGRES_DB: vektra_ci
+      POSTGRES_USER: vektra_ci_user
+      POSTGRES_PASSWORD: ci_dummy_password
+      POSTGRES_SUPERUSER_PASSWORD: ci_dummy_superuser_password
+      BACKEND_PORT: '3000'
+      LOG_LEVEL: info
+      CORS_ALLOWED_ORIGINS: http://localhost:8080
+      RATE_LIMIT_ENABLED: 'false'
+      FRONTEND_PORT: '8080'
+      VITE_API_BASE_URL: http://localhost:3000
+      VITE_CESIUM_ION_TOKEN: ci-placeholder-token
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify every docker-compose.yml variable is documented in .env.example
+        # A real, previously-hit gap (Phase 2H discovered and fixed one
+        # such omission for CORS_ALLOWED_ORIGINS, Phase 2I found and fixed
+        # a second for RATE_LIMIT_ENABLED). This step exists to catch a
+        # recurrence automatically instead of only during a manual review.
+        run: |
+          grep -vE '^\s*#' docker-compose.yml | grep -oE '\$\{[A-Z_]+' | sed 's/\${//' | sort -u > /tmp/compose_vars.txt
+          grep -oE '^[A-Z_]+=' .env.example | sed 's/=//' | sort -u > /tmp/env_example_vars.txt
+          missing=$(comm -23 /tmp/compose_vars.txt /tmp/env_example_vars.txt)
+          if [ -n "$missing" ]; then
+            echo "The following variables are referenced in docker-compose.yml but undocumented in .env.example:"
+            echo "$missing"
+            exit 1
+          fi
+          echo "All docker-compose.yml variables are documented in .env.example"
+
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet
+
+      - name: Build backend and frontend images
+        # `docker compose build` (no service names) only builds services
+        # with a `build:` key — backend and frontend — and skips `db`
+        # (image: postgis/postgis:16-3.4, nothing to build) automatically.
+        run: docker compose build
