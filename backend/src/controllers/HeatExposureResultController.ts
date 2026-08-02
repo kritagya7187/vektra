@@ -28,6 +28,21 @@ export async function listHeatExposureResults(
   sendData(res, results);
 }
 
+/**
+ * Batch counterpart to getHeatExposureResultFactors — every factor row
+ * for every result under one run (default: latest baseline run, same
+ * rule as listHeatExposureResults) in a single response, so a frontend
+ * driving scene-wide (whole-run) visualization isn't forced into one
+ * request per building.
+ */
+export async function listHeatExposureResultFactorsForRun(
+  req: ValidatedRequest<unknown, HeatExposureResultListQuery>,
+  res: Response,
+): Promise<void> {
+  const factors = await heatExposureResultService.listFactorsForRun(req.query.runId);
+  sendData(res, factors);
+}
+
 export async function getHeatExposureResultById(
   req: ValidatedRequest<UuidParam>,
   res: Response,

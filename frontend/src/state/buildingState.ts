@@ -3,6 +3,7 @@ import {
   fetchAllBuildingsGeoJson,
   getBuilding,
   getHeatExposureResultFactors,
+  listHeatExposureFactorsForRun,
   listHeatExposureResultsForRun,
   type Building,
   type BuildingGeoJsonProperties,
@@ -79,18 +80,25 @@ function toApiError(err: unknown, fallbackMessage: string): ApiError {
  * batch), then join client-side. If the run has zero results (a
  * genuinely empty but valid state, not an error), twinBuildings is an
  * empty array — the scene must render an honest empty state, not throw.
+ *
+ * Also fetches every factor row for the run in the same batch
+ * (listHeatExposureFactorsForRun, visualization redesign) — this is
+ * what makes scene-wide Thermal/NDVI coloring possible without one HTTP
+ * request per building; joinBuildingsWithResults does the same
+ * client-side id-matching it already did for results.
  */
 export async function loadTwinForRun(run: SimulationRun): Promise<void> {
   buildingStore.set((previous) => ({ ...previous, twinStatus: 'loading', twinError: null }));
   try {
-    const [results, featureCollection] = await Promise.all([
+    const [results, factors, featureCollection] = await Promise.all([
       listHeatExposureResultsForRun(run.runId),
+      listHeatExposureFactorsForRun(run.runId),
       cachedFeatureCollection
         ? Promise.resolve(cachedFeatureCollection)
         : fetchAllBuildingsGeoJson(),
     ]);
     cachedFeatureCollection = featureCollection;
-    const twinBuildings = joinBuildingsWithResults(featureCollection, results);
+    const twinBuildings = joinBuildingsWithResults(featureCollection, results, factors);
     buildingStore.set((previous) => ({
       ...previous,
       twinStatus: 'loaded',

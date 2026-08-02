@@ -226,6 +226,14 @@ export interface HeatExposureFactorValueRepository extends WriteRepository<
     resultId: string,
     executor?: Database,
   ): Promise<readonly HeatExposureFactorValue[]>;
+
+  /**
+   * Every factor row for every result under one simulation run, in a
+   * single query — the batch counterpart to listByResultId, added for
+   * scene-wide (whole-run) visualization so a caller isn't forced into
+   * one HTTP round trip per building.
+   */
+  listByRunId(runId: string, executor?: Database): Promise<readonly HeatExposureFactorValue[]>;
 }
 
 export interface SimulationRunInputDatasetRepository extends WriteRepository<

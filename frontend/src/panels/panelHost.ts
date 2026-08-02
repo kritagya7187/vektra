@@ -2,7 +2,6 @@ import { closePanel, uiStore, type PanelId } from '../state';
 import { renderComparisonView } from './comparisonView';
 import { renderExportActions } from './exportActions';
 import { renderInspectionPanel } from './inspectionPanel';
-import { renderLegend } from './legend';
 import { renderScenarioWorkspace } from './scenarioWorkspace';
 import type { PanelController } from './types';
 
@@ -43,8 +42,6 @@ export function createPanelHost(overlayRoot: HTMLElement): () => void {
 
 function mount(panel: PanelId, overlayRoot: HTMLElement): PanelController {
   switch (panel) {
-    case 'legend':
-      return renderLegend(overlayRoot, closePanel);
     case 'inspection':
       return renderInspectionPanel(overlayRoot, closePanel);
     case 'scenarioWorkspace':

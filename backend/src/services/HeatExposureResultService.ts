@@ -79,8 +79,29 @@ export class HeatExposureResultService extends BaseService {
    * EDD Section 21: "default: latest baseline run."
    */
   async listForRun(runId?: string): Promise<readonly HeatExposureResult[]> {
+    const resolvedRunId = await this.resolveRunId(runId);
+    return this.heatExposureResultRepository.listByRunId(resolvedRunId);
+  }
+
+  /**
+   * Batch counterpart to getWithFactors — every factor row for every
+   * result under one run (or the latest baseline run, same
+   * default-resolution rule as listForRun), for scene-wide
+   * visualization. Returns plain HeatExposureFactorValue rows
+   * (resultId, not buildingId) — a caller that already has the run's
+   * HeatExposureResult[] (e.g. via listForRun) already holds the
+   * resultId->buildingId join key, so denormalizing buildingId onto
+   * every factor row here would be redundant, not simpler.
+   */
+  async listFactorsForRun(runId?: string): Promise<readonly HeatExposureFactorValue[]> {
+    const resolvedRunId = await this.resolveRunId(runId);
+    return this.heatExposureFactorValueRepository.listByRunId(resolvedRunId);
+  }
+
+  /** Shared by listForRun/listFactorsForRun — EDD Section 21's "default: latest baseline run" rule, resolved once. */
+  private async resolveRunId(runId?: string): Promise<string> {
     if (runId !== undefined) {
-      return this.heatExposureResultRepository.listByRunId(runId);
+      return runId;
     }
 
     const latestBaseline = await this.simulationRunRepository.findLatestBaselineRun();
@@ -91,7 +112,7 @@ export class HeatExposureResultService extends BaseService {
       { runId: latestBaseline.runId },
       'defaulted heat exposure result query to latest baseline run',
     );
-    return this.heatExposureResultRepository.listByRunId(latestBaseline.runId);
+    return latestBaseline.runId;
   }
 }
 

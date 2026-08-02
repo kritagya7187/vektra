@@ -17,6 +17,7 @@ export {
 } from './simulationRuns';
 export {
   listHeatExposureResultsForRun,
+  listHeatExposureFactorsForRun,
   getHeatExposureResult,
   getHeatExposureResultFactors,
   heatExposureResultsCsvExportUrl,

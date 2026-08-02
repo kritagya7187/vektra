@@ -14,7 +14,8 @@ import {
   setSceneReady,
   uiStore,
 } from './state';
-import { createPanelHost, renderTopBar } from './panels';
+import { createPanelHost, renderLayerControl, renderLegendBar, renderTopBar } from './panels';
+import { computeVisualizationRanges } from './domain/colorRamps';
 import { TwinScene } from './scene/twinScene';
 import { h, mount } from './utils/dom';
 
@@ -35,12 +36,22 @@ if (!appRoot) {
 const cesiumContainer = h('div', { class: 'cesium-container', 'aria-hidden': 'true' });
 const topBarRoot = h('div', { class: 'topbar-root' });
 const overlayRoot = h('div', { class: 'overlay-root' });
+const layerControlRoot = h('div', { class: 'layer-control-root' });
+const legendBarRoot = h('div', { class: 'legend-bar-root' });
 const statusRoot = h('div', { class: 'status-root', role: 'status', 'aria-live': 'polite' });
 
 mount(
   appRoot,
   cesiumContainer,
-  h('div', { class: 'app-shell' }, topBarRoot, overlayRoot, statusRoot),
+  h(
+    'div',
+    { class: 'app-shell' },
+    topBarRoot,
+    overlayRoot,
+    layerControlRoot,
+    legendBarRoot,
+    statusRoot,
+  ),
 );
 
 const scene = new TwinScene(cesiumContainer, (buildingId) => {
@@ -58,6 +69,26 @@ setSceneReady();
 
 renderTopBar(topBarRoot, (panel) => openPanel(panel));
 createPanelHost(overlayRoot);
+renderLayerControl(layerControlRoot);
+renderLegendBar(legendBarRoot);
+
+// Visualization mode (Default/Thermal/NDVI/Land Cover) is orthogonal to
+// stylingMode's baseline/scenario toggle below — either result set can
+// be viewed under any layer. Ranges are computed here (not inside
+// BuildingLayer, which stays free of any state/ import) from whichever
+// twinBuildings are currently loaded, then passed down.
+function applyVisualizationMode(): void {
+  const { activeVisualizationMode } = sceneStore.get();
+  const { twinBuildings } = buildingStore.get();
+  const ranges = computeVisualizationRanges(twinBuildings);
+  scene.setVisualizationMode(activeVisualizationMode, ranges, twinBuildings);
+}
+sceneStore.subscribe(applyVisualizationMode);
+buildingStore.subscribe((state) => {
+  if (state.twinStatus === 'loaded') {
+    applyVisualizationMode();
+  }
+});
 
 // Scene reacts to Building state — never the inverse (layer separation, §9).
 buildingStore.subscribe((state) => {

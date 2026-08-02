@@ -138,4 +138,38 @@ describe('GET /api/heat-exposure-results', () => {
     const res = await testApp().get(`/api/heat-exposure-results/${NONEXISTENT_UUID}/factors`);
     expect(res.status).toBe(404);
   });
+
+  it('/factors is a distinct route, not swallowed by /:id (resolves before the UUID param route)', async () => {
+    const run = await createSimulationRun();
+    const buildingA = await createBuilding();
+    const buildingB = await createBuilding();
+    const resultA = await createHeatExposureResult(run.runId, buildingA.buildingId);
+    const resultB = await createHeatExposureResult(run.runId, buildingB.buildingId);
+    await createHeatExposureFactorValue(resultA.resultId, 'morphology_density', 5);
+    await createHeatExposureFactorValue(resultB.resultId, 'thermal_signature', 315.2);
+
+    const res = await testApp().get(`/api/heat-exposure-results/factors?runId=${run.runId}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(2);
+    expect(res.body.data.map((f: { resultId: string }) => f.resultId).sort()).toEqual(
+      [resultA.resultId, resultB.resultId].sort(),
+    );
+  });
+
+  it('/factors defaults to the latest baseline run when runId is omitted', async () => {
+    const baseline = await createSimulationRun({ runType: 'baseline', status: 'completed' });
+    const building = await createBuilding();
+    const result = await createHeatExposureResult(baseline.runId, building.buildingId);
+    await createHeatExposureFactorValue(result.resultId, 'thermal_signature', 310.1);
+
+    const res = await testApp().get('/api/heat-exposure-results/factors');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].resultId).toBe(result.resultId);
+  });
+
+  it('/factors 404s when no runId given and no completed baseline run exists', async () => {
+    const res = await testApp().get('/api/heat-exposure-results/factors');
+    expect(res.status).toBe(404);
+  });
 });

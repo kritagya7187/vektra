@@ -3,6 +3,7 @@ import { joinBuildingsWithResults } from '../../../src/domain/joinBuildingsWithR
 import type {
   BuildingGeoJsonProperties,
   GeoJsonFeatureCollection,
+  HeatExposureFactorValue,
   HeatExposureResult,
 } from '../../../src/api';
 
@@ -121,5 +122,50 @@ describe('joinBuildingsWithResults', () => {
     };
     const joined = joinBuildingsWithResults(fc, [result()]);
     expect(joined).toEqual([]);
+  });
+
+  it('defaults factors to an empty array when the caller does not fetch them (e.g. comparison-mode re-join)', () => {
+    const fc = collection([buildingProperties()]);
+    const joined = joinBuildingsWithResults(fc, [result()]);
+    expect(joined[0].factors).toEqual([]);
+  });
+
+  it("joins each building to its own result's factor rows, matched by resultId, never a mismatched building's", () => {
+    const fc = collection([
+      buildingProperties({ buildingId: 'a' }),
+      buildingProperties({ buildingId: 'b' }),
+    ]);
+    const results = [
+      result({ resultId: 'r-a', buildingId: 'a' }),
+      result({ resultId: 'r-b', buildingId: 'b' }),
+    ];
+    const factors: HeatExposureFactorValue[] = [
+      {
+        factorValueId: 'fv-a',
+        resultId: 'r-a',
+        factorKey: 'thermal_signature',
+        factorValue: 310,
+        isComputable: true,
+        notes: null,
+        createdAt: '2025-01-01T00:00:00Z',
+        updatedAt: '2025-01-01T00:00:00Z',
+      },
+      {
+        factorValueId: 'fv-b',
+        resultId: 'r-b',
+        factorKey: 'thermal_signature',
+        factorValue: 315,
+        isComputable: true,
+        notes: null,
+        createdAt: '2025-01-01T00:00:00Z',
+        updatedAt: '2025-01-01T00:00:00Z',
+      },
+    ];
+
+    const joined = joinBuildingsWithResults(fc, results, factors);
+    const byId = new Map(joined.map((tb) => [tb.building.buildingId, tb]));
+
+    expect(byId.get('a')?.factors).toEqual([factors[0]]);
+    expect(byId.get('b')?.factors).toEqual([factors[1]]);
   });
 });

@@ -407,6 +407,9 @@ describe('ScenarioSimulationService (real DB, full engine, real baseline)', () =
       listByResultId: heatExposureFactorValueRepository.listByResultId.bind(
         heatExposureFactorValueRepository,
       ),
+      listByRunId: heatExposureFactorValueRepository.listByRunId.bind(
+        heatExposureFactorValueRepository,
+      ),
       create: async (input, executor) => {
         callCount += 1;
         // Fail on the second building's first factor row — well after the

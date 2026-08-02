@@ -147,6 +147,9 @@ describe('HeatExposureSimulationService (real DB, full engine)', () => {
       listByResultId: heatExposureFactorValueRepository.listByResultId.bind(
         heatExposureFactorValueRepository,
       ),
+      listByRunId: heatExposureFactorValueRepository.listByRunId.bind(
+        heatExposureFactorValueRepository,
+      ),
       create: async (input, executor) => {
         callCount += 1;
         // Fail on the SECOND building's very first factor row, well after

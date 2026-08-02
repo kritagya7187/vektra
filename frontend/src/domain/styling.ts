@@ -19,9 +19,19 @@ export interface BuildingStyle {
   readonly hasComputedIndex: boolean;
 }
 
-/** Desaturated slate, not a "cold" color on any heat ramp — deliberately not the first step of an implied gradient. */
-const NEUTRAL_FILL_CSS = '#3a4a56';
-const NEUTRAL_OUTLINE_CSS = '#6b8492';
+/**
+ * Thermal-field visual redirect: neutral "context city" tone shifted
+ * from a dark slate to a light near-white — matching the reference
+ * urban-planning visualization's "quiet, neutral base city" language.
+ * Still deliberately not a "cold" color on any heat ramp (a light warm-
+ * neutral grey, not the ramp's own blue endpoint) — not the first step
+ * of an implied gradient. Exported so colorRamps.ts's "no data" state
+ * can reuse these exact values rather than a second, hand-duplicated
+ * grey — a building with no computable value should read as part of
+ * the neutral context city, not as a distinct "error" grey.
+ */
+export const NEUTRAL_FILL_CSS = '#f0f2f4';
+export const NEUTRAL_OUTLINE_CSS = '#aab4bd';
 
 export const SELECTED_OUTLINE_CSS = '#e8b34a';
 

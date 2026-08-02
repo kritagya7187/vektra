@@ -196,51 +196,155 @@ input {
   font-size: 13px;
 }
 
-/* ---------- Legend ---------- */
+/* ---------- Layer control (persistent, left-floating) ---------- */
 
-.legend__status {
+.layer-control-root {
+  position: fixed;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 8;
+}
+
+.layer-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  background: var(--color-surface);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  width: 128px;
+}
+
+.layer-control__title {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.layer-control__btn {
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+
+.layer-control__btn:hover:not(:disabled) {
+  border-color: var(--color-accent-muted);
+  color: var(--color-text);
+}
+
+.layer-control__btn--active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.layer-control__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ---------- Legend bar (persistent, bottom-center) ---------- */
+
+.legend-bar-root {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 8;
+  max-width: 420px;
+}
+
+.legend-bar {
+  background: var(--color-surface);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px 16px;
+}
+
+.legend-bar__status {
   font-weight: 600;
   margin: 0 0 6px;
+  font-size: 13px;
 }
 
-.legend__note {
+.legend-bar__note {
   color: var(--color-text-muted);
-  font-size: 12.5px;
-  margin: 0 0 16px;
+  font-size: 11.5px;
+  margin: 4px 0 0;
 }
 
-.legend__factors {
+.legend-bar__ramp {
+  height: 10px;
+  border-radius: 4px;
+  margin-top: 6px;
+}
+
+.legend-bar__range {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.legend-bar__factors {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
-.legend__factor {
+.legend-bar__factor {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
+  gap: 16px;
+  font-size: 12px;
 }
 
-.legend__factor-state {
-  font-size: 11.5px;
+.legend-bar__factor-state {
+  font-size: 11px;
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 1px 7px;
   border-radius: 999px;
   border: 1px solid currentColor;
 }
 
-.legend__factor-state--computable {
+.legend-bar__factor-state--computable {
   color: var(--color-computable);
 }
 
-.legend__factor-state--not-computable {
+.legend-bar__factor-state--not-computable {
   color: var(--color-not-computable);
+}
+
+@media (max-width: 640px) {
+  .layer-control-root {
+    left: 12px;
+  }
+
+  .legend-bar-root {
+    left: 12px;
+    right: 12px;
+    bottom: 84px;
+    transform: none;
+    max-width: none;
+  }
 }
 
 /* ---------- Inspection / factor breakdown / provenance ---------- */
