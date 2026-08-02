@@ -89,8 +89,21 @@ services:
     # same-named keys from this file (Compose's documented precedence),
     # which is why POSTGRES_HOST/PORT etc. below still safely override
     # whatever host-oriented values happen to also be in .env.
+    #
+    # `required: false`: CI's `docker` job (ci.yml) validates this file
+    # with `docker compose config` using env vars supplied directly by
+    # GitHub Actions' own `env:` block, never a real .env file on disk —
+    # real, reproduced failure without this: "env file .../.env not
+    # found" from `docker compose config` alone, since the plain
+    # `- ./.env` shorthand treats the file as mandatory. This object form
+    # (Compose Specification, Docker Compose v2.24+) is the documented
+    # way to say "load it if present, silently skip it if not" — CI has
+    # no .env and doesn't need one (every value it cares about comes from
+    # the workflow's own env:); real local/deployment use still gets the
+    # exact same env_file behavior as before whenever .env does exist.
     env_file:
-      - ./.env
+      - path: ./.env
+        required: false
     environment:
       NODE_ENV: production
       BACKEND_PORT: ${BACKEND_PORT}
