@@ -58,6 +58,30 @@ export class HeatExposureFactorValueRepositoryImpl
   }
 
   /**
+   * Batch counterpart to listByResultId — every factor row for every
+   * result under one run, in one query, for scene-wide (whole-run)
+   * visualization. Ordered by result_id then factor_key for a stable,
+   * deterministic response shape.
+   */
+  async listByRunId(
+    runId: string,
+    executor?: Database,
+  ): Promise<readonly HeatExposureFactorValue[]> {
+    const rows = await this.queryMany<HeatExposureFactorValueRow>(
+      'HeatExposureFactorValueRepository.listByRunId',
+      `SELECT hefv.factor_value_id, hefv.result_id, hefv.factor_key, hefv.factor_value,
+              hefv.is_computable, hefv.notes, hefv.created_at, hefv.updated_at
+       FROM heat_exposure_factor_value hefv
+       JOIN heat_exposure_result her ON hefv.result_id = her.result_id
+       WHERE her.run_id = $1
+       ORDER BY hefv.result_id ASC, hefv.factor_key ASC`,
+      [runId],
+      executor,
+    );
+    return rows.map(mapRow);
+  }
+
+  /**
    * Heat Exposure Engine subsystem — the only writer (db/migrations/0014
    * grants INSERT on heat_exposure_factor_value to vektra_simulation
    * only). The CHECK (is_computable OR factor_value IS NULL) constraint

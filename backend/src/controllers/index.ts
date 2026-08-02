@@ -23,6 +23,7 @@ export {
 export type { SimulationRunExportQuery } from './SimulationRunController';
 export {
   listHeatExposureResults,
+  listHeatExposureResultFactorsForRun,
   getHeatExposureResultById,
   getHeatExposureResultFactors,
   exportHeatExposureResults,

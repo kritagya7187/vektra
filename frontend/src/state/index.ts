@@ -37,6 +37,7 @@ export {
   sceneStore,
   setSceneReady,
   setStylingMode,
+  setVisualizationMode,
   type SceneState,
   type StylingMode,
 } from './sceneState';

@@ -26,3 +26,18 @@ export function extrusionHeightFor(building: BuildingGeoJsonProperties): number 
   }
   return DEFAULT_EXTRUSION_HEIGHT_M;
 }
+
+/**
+ * True when extrusionHeightFor() had neither real tag to work with and
+ * fell all the way through to DEFAULT_EXTRUSION_HEIGHT_M — a legitimate,
+ * EDD-permitted fallback, but one that was never visually or textually
+ * disclosed as an estimate until the visualization redesign. The single
+ * source both scene/buildingLayer.ts's alpha treatment and the
+ * inspection panel's text read, so the two can't drift out of sync with
+ * each other or with extrusionHeightFor()'s own real fallback condition.
+ */
+export function isHeightEstimated(building: BuildingGeoJsonProperties): boolean {
+  const hasRealHeight = building.heightM !== null && building.heightM > 0;
+  const hasRealLevels = building.buildingLevels !== null && building.buildingLevels > 0;
+  return !hasRealHeight && !hasRealLevels;
+}

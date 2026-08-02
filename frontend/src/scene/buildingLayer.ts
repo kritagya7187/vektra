@@ -1,10 +1,21 @@
 import * as Cesium from 'cesium';
 import type { GeoJsonMultiPolygon } from '../api';
-import { extrusionHeightFor } from '../domain/extrusion';
+import {
+  styleForVisualizationMode,
+  type VisualizationMode,
+  type VisualizationRanges,
+} from '../domain/colorRamps';
+import { extrusionHeightFor, isHeightEstimated } from '../domain/extrusion';
 import { SELECTED_OUTLINE_CSS, styleForResult, type BuildingStyle } from '../domain/styling';
 import type { TwinBuilding } from '../domain/joinBuildingsWithResults';
 
 export const BUILDING_ENTITY_PREFIX = 'building:';
+
+/** Reduced fill opacity for buildings whose extrusion height is DEFAULT_EXTRUSION_HEIGHT_M's fallback, not a real height_m/building_levels tag — a visual "this is an estimate" cue. Alpha-based, not a dashed outline: Cesium's PolygonGraphics has no outline-material/dash support, and a dashed treatment would need a second entity per affected building. */
+const NORMAL_FILL_ALPHA = 0.85;
+const ESTIMATED_HEIGHT_FILL_ALPHA = 0.5;
+
+const EMPTY_RANGES: VisualizationRanges = { thermal: null, ndvi: null };
 
 function ringToPositions(ring: readonly (readonly [number, number])[]): Cesium.Cartesian3[] {
   const isClosed =
@@ -29,12 +40,21 @@ function multiPolygonToHierarchies(geometry: GeoJsonMultiPolygon): Cesium.Polygo
   });
 }
 
-function applyStyle(entity: Cesium.Entity, style: BuildingStyle, selected: boolean): void {
+function fillAlphaFor(twinBuilding: TwinBuilding): number {
+  return isHeightEstimated(twinBuilding.building) ? ESTIMATED_HEIGHT_FILL_ALPHA : NORMAL_FILL_ALPHA;
+}
+
+function applyStyle(
+  entity: Cesium.Entity,
+  style: BuildingStyle,
+  selected: boolean,
+  fillAlpha: number,
+): void {
   if (!entity.polygon) {
     return;
   }
   entity.polygon.material = new Cesium.ColorMaterialProperty(
-    Cesium.Color.fromCssColorString(style.fillColorCss).withAlpha(0.85),
+    Cesium.Color.fromCssColorString(style.fillColorCss).withAlpha(fillAlpha),
   );
   entity.polygon.outlineColor = new Cesium.ConstantProperty(
     Cesium.Color.fromCssColorString(selected ? SELECTED_OUTLINE_CSS : style.outlineColorCss),
@@ -48,6 +68,7 @@ function createEntitiesForBuilding(
 ): Cesium.Entity.ConstructorOptions[] {
   const hierarchies = multiPolygonToHierarchies(twinBuilding.geometry);
   const extrudedHeight = extrusionHeightFor(twinBuilding.building);
+  const fillAlpha = fillAlphaFor(twinBuilding);
 
   return hierarchies.map((hierarchy) => ({
     id: `${BUILDING_ENTITY_PREFIX}${twinBuilding.building.buildingId}`,
@@ -55,7 +76,7 @@ function createEntitiesForBuilding(
       hierarchy,
       height: 0,
       extrudedHeight,
-      material: Cesium.Color.fromCssColorString(style.fillColorCss).withAlpha(0.85),
+      material: Cesium.Color.fromCssColorString(style.fillColorCss).withAlpha(fillAlpha),
       outline: true,
       outlineColor: Cesium.Color.fromCssColorString(style.outlineColorCss),
       outlineWidth: 1,
@@ -79,9 +100,23 @@ export class BuildingLayer {
   private readonly entitiesByBuildingId = new Map<string, Cesium.Entity[]>();
   private readonly twinByBuildingId = new Map<string, TwinBuilding>();
   private selectedBuildingId: string | null = null;
+  private visualizationMode: VisualizationMode = 'default';
+  private visualizationRanges: VisualizationRanges = EMPTY_RANGES;
 
   constructor(viewer: Cesium.Viewer) {
     this.viewer = viewer;
+  }
+
+  /** Resolves the active color source — factor-driven ramp for a data layer, or the existing (untouched) composite-index-aware neutral style for 'default'. */
+  private resolveStyle(twinBuilding: TwinBuilding): BuildingStyle {
+    if (this.visualizationMode === 'default') {
+      return styleForResult(twinBuilding.result);
+    }
+    return styleForVisualizationMode(
+      this.visualizationMode,
+      twinBuilding.factors,
+      this.visualizationRanges,
+    );
   }
 
   setTwinBuildings(twinBuildings: readonly TwinBuilding[]): void {
@@ -99,24 +134,52 @@ export class BuildingLayer {
 
     for (const twinBuilding of twinBuildings) {
       const buildingId = twinBuilding.building.buildingId;
-      const style = styleForResult(twinBuilding.result);
+      const style = this.resolveStyle(twinBuilding);
       const selected = buildingId === this.selectedBuildingId;
+      const fillAlpha = fillAlphaFor(twinBuilding);
       const existing = this.entitiesByBuildingId.get(buildingId);
 
       if (existing) {
         for (const entity of existing) {
-          applyStyle(entity, style, selected);
+          applyStyle(entity, style, selected, fillAlpha);
         }
       } else {
         const created = createEntitiesForBuilding(twinBuilding, style).map((options) =>
           this.viewer.entities.add(options),
         );
         for (const entity of created) {
-          applyStyle(entity, style, selected);
+          applyStyle(entity, style, selected, fillAlpha);
         }
         this.entitiesByBuildingId.set(buildingId, created);
       }
       this.twinByBuildingId.set(buildingId, twinBuilding);
+    }
+  }
+
+  /**
+   * Switches which data layer colors the scene and re-styles every
+   * building already present, in place — the same "re-style, don't
+   * rebuild" reconciliation setTwinBuildings already uses for Comparison
+   * Mode. Ranges are passed in (not computed here) because they depend
+   * on the full twin-building set, which callers already hold in state —
+   * this class stays free of any state/ import, per its own layering
+   * rule.
+   */
+  setVisualizationMode(mode: VisualizationMode, ranges: VisualizationRanges): void {
+    this.visualizationMode = mode;
+    this.visualizationRanges = ranges;
+
+    for (const [buildingId, entities] of this.entitiesByBuildingId) {
+      const twin = this.twinByBuildingId.get(buildingId);
+      if (!twin) {
+        continue;
+      }
+      const style = this.resolveStyle(twin);
+      const selected = buildingId === this.selectedBuildingId;
+      const fillAlpha = fillAlphaFor(twin);
+      for (const entity of entities) {
+        applyStyle(entity, style, selected, fillAlpha);
+      }
     }
   }
 
@@ -128,9 +191,9 @@ export class BuildingLayer {
       const twin = this.twinByBuildingId.get(previous);
       const entities = this.entitiesByBuildingId.get(previous);
       if (twin && entities) {
-        const style = styleForResult(twin.result);
+        const style = this.resolveStyle(twin);
         for (const entity of entities) {
-          applyStyle(entity, style, false);
+          applyStyle(entity, style, false, fillAlphaFor(twin));
         }
       }
     }
@@ -138,9 +201,9 @@ export class BuildingLayer {
       const twin = this.twinByBuildingId.get(buildingId);
       const entities = this.entitiesByBuildingId.get(buildingId);
       if (twin && entities) {
-        const style = styleForResult(twin.result);
+        const style = this.resolveStyle(twin);
         for (const entity of entities) {
-          applyStyle(entity, style, true);
+          applyStyle(entity, style, true, fillAlphaFor(twin));
         }
       }
     }

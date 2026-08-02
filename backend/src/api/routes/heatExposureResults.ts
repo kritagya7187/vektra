@@ -4,6 +4,7 @@ import {
   exportHeatExposureResults,
   getHeatExposureResultById,
   getHeatExposureResultFactors,
+  listHeatExposureResultFactorsForRun,
   listHeatExposureResults,
 } from '../../controllers';
 import { asyncHandler, validateRequest } from '../../middleware';
@@ -42,6 +43,14 @@ heatExposureResultsRouter.get(
   '/export',
   validateRequest({ query: heatExposureResultExportQuerySchema }),
   asyncHandler(exportHeatExposureResults),
+);
+
+// Also before '/:id', same reason — 'factors' would otherwise be parsed
+// as a UUID :id param and 400 rather than reaching this handler.
+heatExposureResultsRouter.get(
+  '/factors',
+  validateRequest({ query: listHeatExposureResultsQuerySchema }),
+  asyncHandler(listHeatExposureResultFactorsForRun),
 );
 
 heatExposureResultsRouter.get(

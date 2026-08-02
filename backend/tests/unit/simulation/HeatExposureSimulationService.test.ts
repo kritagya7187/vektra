@@ -231,6 +231,7 @@ function fakeHeatExposureFactorValueRepository(): {
   let counter = 0;
   const repo: HeatExposureFactorValueRepository = {
     listByResultId: () => Promise.resolve([]),
+    listByRunId: () => Promise.resolve([]),
     create: (input) => {
       counter += 1;
       created.push({

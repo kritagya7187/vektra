@@ -264,6 +264,7 @@ function fakeHeatExposureFactorValueRepository(): {
   let counter = 0;
   const repo: HeatExposureFactorValueRepository = {
     listByResultId: () => Promise.resolve([]),
+    listByRunId: () => Promise.resolve([]),
     create: (input) => {
       counter += 1;
       created.push({
@@ -480,6 +481,7 @@ describe('ScenarioSimulationService', () => {
   it('marks the run failed, does NOT set derived_run_id, and rethrows when persistence fails inside the transaction', async () => {
     const failingFactorRepository: HeatExposureFactorValueRepository = {
       listByResultId: () => Promise.resolve([]),
+      listByRunId: () => Promise.resolve([]),
       create: () => Promise.reject(new ConflictError('simulated infrastructure failure')),
     };
     const { service, runs, scenarios } = buildService({

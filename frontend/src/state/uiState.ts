@@ -6,8 +6,14 @@ import { Store } from './store';
  * not a boolean per panel — only one primary overlay is meaningfully
  * open at a time (progressive disclosure, §11), matching the approved
  * "opening the Scenario Workspace collapses the Inspection Panel" rule.
+ *
+ * 'legend' was removed from this rotation by the visualization redesign:
+ * the legend is now a persistent, always-visible bar (panels/legendBar.ts,
+ * mounted directly by main.ts) rather than a click-to-open overlay,
+ * since it must stay in sync with whichever data layer currently colors
+ * the scene — hiding it behind a click would contradict that.
  */
-export type PanelId = 'legend' | 'inspection' | 'scenarioWorkspace' | 'comparison' | 'export';
+export type PanelId = 'inspection' | 'scenarioWorkspace' | 'comparison' | 'export';
 
 export interface UiState {
   readonly openPanel: PanelId | null;

@@ -3,6 +3,7 @@ import {
   DEFAULT_EXTRUSION_HEIGHT_M,
   LEVEL_HEIGHT_M,
   extrusionHeightFor,
+  isHeightEstimated,
 } from '../../../src/domain/extrusion';
 import type { BuildingGeoJsonProperties } from '../../../src/api';
 
@@ -53,5 +54,20 @@ describe('extrusionHeightFor (EDD Section 20: real tag, then fallback)', () => {
     expect(extrusionHeightFor(building({ heightM: null, buildingLevels: 0 }))).toBe(
       DEFAULT_EXTRUSION_HEIGHT_M,
     );
+  });
+});
+
+describe('isHeightEstimated (visualization redesign — height-fallback disclosure)', () => {
+  it('is false when a real heightM is present', () => {
+    expect(isHeightEstimated(building({ heightM: 12, buildingLevels: null }))).toBe(false);
+  });
+
+  it('is false when a real buildingLevels is present', () => {
+    expect(isHeightEstimated(building({ heightM: null, buildingLevels: 4 }))).toBe(false);
+  });
+
+  it('is true only when neither real tag is present — the same condition that triggers DEFAULT_EXTRUSION_HEIGHT_M', () => {
+    expect(isHeightEstimated(building({ heightM: null, buildingLevels: null }))).toBe(true);
+    expect(isHeightEstimated(building({ heightM: 0, buildingLevels: -1 }))).toBe(true);
   });
 });
