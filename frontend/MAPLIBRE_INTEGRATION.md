@@ -34,13 +34,13 @@ Both were found during this step's own architecture audit and treated as minimal
 
 ## Module layout (`frontend/src/`)
 
-| Layer | New files (Step 20) | Responsibility |
-|---|---|---|
-| `scene/` | `mapViewer.ts`, `photorealisticTilesLayer.ts`, `floodLayer.ts`, `buildingPickLayer.ts`; rewritten `camera.ts`, `selection.ts`, `twinScene.ts` | The only layer touching MapLibre/deck.gl. `viewer.ts` and `buildingLayer.ts` (Cesium-specific) were deleted. |
-| `domain/` | `colormap.ts`, `floodRaster.ts`, `timeline.ts`, `layers.ts`, `geometryBounds.ts`, `demoScenario.ts` | Pure, framework-free logic — colormapping, rasterizing, the timeline reducer, layer-visibility types. `extrusion.ts`/`styling.ts` (Cesium-extrusion-only) were deleted as dead code once retired. |
-| `state/` | `floodRunState.ts`, `layerVisibilityState.ts`, `timelineState.ts`, `floodInspectionState.ts` | New `Store<T>` domains, same pattern as the existing `buildingState.ts`/`runState.ts`. |
-| `api/` | `floodSimulations.ts`, DTOs added to `types.ts` | Reuses the existing `getJson`/`postJson`/`exportUrl` (`api/client.ts`) unchanged — no new HTTP plumbing. |
-| `panels/` | `jobStatusPanel.ts`, `timelinePanel.ts` (persistent chrome), `layerControlPanel.ts`, `floodInspectionPanel.ts` (togglable, via `panelHost.ts`) | UI. |
+| Layer     | New files (Step 20)                                                                                                                            | Responsibility                                                                                                                                                                                    |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scene/`  | `mapViewer.ts`, `photorealisticTilesLayer.ts`, `floodLayer.ts`, `buildingPickLayer.ts`; rewritten `camera.ts`, `selection.ts`, `twinScene.ts`  | The only layer touching MapLibre/deck.gl. `viewer.ts` and `buildingLayer.ts` (Cesium-specific) were deleted.                                                                                      |
+| `domain/` | `colormap.ts`, `floodRaster.ts`, `timeline.ts`, `layers.ts`, `geometryBounds.ts`, `demoScenario.ts`                                            | Pure, framework-free logic — colormapping, rasterizing, the timeline reducer, layer-visibility types. `extrusion.ts`/`styling.ts` (Cesium-extrusion-only) were deleted as dead code once retired. |
+| `state/`  | `floodRunState.ts`, `layerVisibilityState.ts`, `timelineState.ts`, `floodInspectionState.ts`                                                   | New `Store<T>` domains, same pattern as the existing `buildingState.ts`/`runState.ts`.                                                                                                            |
+| `api/`    | `floodSimulations.ts`, DTOs added to `types.ts`                                                                                                | Reuses the existing `getJson`/`postJson`/`exportUrl` (`api/client.ts`) unchanged — no new HTTP plumbing.                                                                                          |
+| `panels/` | `jobStatusPanel.ts`, `timelinePanel.ts` (persistent chrome), `layerControlPanel.ts`, `floodInspectionPanel.ts` (togglable, via `panelHost.ts`) | UI.                                                                                                                                                                                               |
 
 ## Job lifecycle (§5, §9)
 
@@ -70,6 +70,7 @@ All six layers (terrain, imagery, 3D buildings, and the three flood layers) are 
 ## Feature Inspection (§7)
 
 Clicking the map resolves to exactly one of two outcomes (`scene/selection.ts`'s `resolveMapClick`, routed in `main.ts`):
+
 - **Hit the invisible building-pick layer** → opens the existing (unchanged) building inspection panel.
 - **Otherwise** → `domain/floodRaster.ts`'s `sampleGridAt()` reads the already-fetched summary grids at that exact cell (a lookup, never an interpolation) and displays coordinates + max depth + arrival time + duration. No exposure or damage computation.
 
@@ -79,18 +80,18 @@ Reset (top-down, north-up), zoom-to-AOI, and fit-to-buildings are explicit `scen
 
 ## Configuration
 
-| Env var | Default | Purpose |
-|---|---|---|
-| `VITE_API_BASE_URL` | *(required)* | Backend base URL — also fronts `/api/flood-simulations/*` (same Express app). |
-| `VITE_MAP_STYLE_URL` | OpenFreeMap `liberty` | MapLibre style JSON URL. |
-| `VITE_TERRAIN_TILE_URL` | AWS public Terrarium tiles | Raster-DEM terrain source. |
-| `VITE_GOOGLE_3D_TILES_API_KEY` | *(none)* | Google Maps Platform key for Photorealistic 3D Tiles; optional, graceful degradation if unset. |
+| Env var                        | Default                    | Purpose                                                                                        |
+| ------------------------------ | -------------------------- | ---------------------------------------------------------------------------------------------- |
+| `VITE_API_BASE_URL`            | _(required)_               | Backend base URL — also fronts `/api/flood-simulations/*` (same Express app).                  |
+| `VITE_MAP_STYLE_URL`           | OpenFreeMap `liberty`      | MapLibre style JSON URL.                                                                       |
+| `VITE_TERRAIN_TILE_URL`        | AWS public Terrarium tiles | Raster-DEM terrain source.                                                                     |
+| `VITE_GOOGLE_3D_TILES_API_KEY` | _(none)_                   | Google Maps Platform key for Photorealistic 3D Tiles; optional, graceful degradation if unset. |
 
 ## Testing
 
 Full unit coverage (vitest, `environment: 'node'`, matching the existing convention) for every pure module: `domain/colormap.ts`, `domain/floodRaster.ts`, `domain/timeline.ts`, `domain/geometryBounds.ts`, `state/floodRunState.ts` (mocked `fetch`, real polling behavior via fake timers), `state/layerVisibilityState.ts`, `state/timelineState.ts` (fake timers), `state/floodInspectionState.ts`, `api/floodSimulations.ts` (mocked `fetch`).
 
-**Disclosed limitation, matching this project's existing convention**: true WebGL/MapLibre/deck.gl rendering (viewer bootstrap producing real pixels, animation FPS, GPU memory) is **not automated** — the frozen `vitest.config.ts` already documented the identical limitation for Cesium before this step. No Playwright/Puppeteer was introduced. Layer/viewer *construction logic* is unit-tested; actual GPU rendering is not.
+**Disclosed limitation, matching this project's existing convention**: true WebGL/MapLibre/deck.gl rendering (viewer bootstrap producing real pixels, animation FPS, GPU memory) is **not automated** — the frozen `vitest.config.ts` already documented the identical limitation for Cesium before this step. No Playwright/Puppeteer was introduced. Layer/viewer _construction logic_ is unit-tested; actual GPU rendering is not.
 
 ## Performance (measurement only, no optimization performed)
 
