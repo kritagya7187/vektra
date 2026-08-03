@@ -3,16 +3,14 @@ import { buildingsRouter } from './routes/buildings';
 import { dataProvenanceRouter } from './routes/dataProvenance';
 import { dataSourcesRouter } from './routes/dataSources';
 import { environmentalRasterAssetsRouter } from './routes/environmentalRasterAssets';
-import { heatExposureResultsRouter } from './routes/heatExposureResults';
 import { meteorologicalObservationsRouter } from './routes/meteorologicalObservations';
-import { scenariosRouter } from './routes/scenarios';
 import { simulationRunsRouter } from './routes/simulationRuns';
 
 /**
- * Every REST resource in EDD Section 21, mounted under one Router that
- * app.ts mounts once at '/api'. Ordering between resources doesn't
- * matter (disjoint path prefixes) — only the ordering WITHIN
- * simulationRuns.ts (latest-baseline before :id) does.
+ * Every REST resource, mounted under one Router that app.ts mounts once
+ * at '/api'. Ordering between resources doesn't matter (disjoint path
+ * prefixes) — only the ordering WITHIN simulationRuns.ts
+ * (latest-baseline before :id) does.
  */
 export const apiRouter = Router();
 
@@ -22,5 +20,3 @@ apiRouter.use('/buildings', buildingsRouter);
 apiRouter.use('/environmental-raster-assets', environmentalRasterAssetsRouter);
 apiRouter.use('/meteorological-observations', meteorologicalObservationsRouter);
 apiRouter.use('/simulation-runs', simulationRunsRouter);
-apiRouter.use('/heat-exposure-results', heatExposureResultsRouter);
-apiRouter.use('/scenarios', scenariosRouter);

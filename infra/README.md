@@ -1,7 +1,5 @@
 # Infrastructure
 
-Docker Compose orchestration and CI configuration.
+Docker Compose orchestration and CI configuration. See [`docker/README.md`](docker/README.md) and [`ci/README.md`](ci/README.md).
 
-EDD reference: Section 34, Section 35.
-
-Status: placeholder — no implementation yet.
+Status: implemented.

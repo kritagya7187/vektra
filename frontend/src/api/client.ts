@@ -66,10 +66,10 @@ function isApiErrorResponseBody(value: unknown): value is ApiErrorResponseBody {
 
 /**
  * The one function in this codebase that calls fetch(). Every resource
- * module (buildings.ts, scenarios.ts, ...) goes through this — matching
- * the design review's "the Scene must never perform HTTP requests
- * directly; only the API layer performs network operations" (state
- * architecture §8/§9).
+ * module (buildings.ts, simulationRuns.ts, ...) goes through this —
+ * matching the design review's "the Scene must never perform HTTP
+ * requests directly; only the API layer performs network operations"
+ * (state architecture §8/§9).
  *
  * Distinguishes exactly the failure categories the design review's error
  * handling strategy (§13) names: a real backend error response (code

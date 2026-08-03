@@ -116,69 +116,6 @@ export async function createSimulationRun(
   return { runId };
 }
 
-export interface HeatExposureResultFixture {
-  readonly resultId: string;
-  readonly runId: string;
-  readonly buildingId: string;
-}
-
-export async function createHeatExposureResult(
-  runId: string,
-  buildingId: string,
-  indexValue: number | null = 0.5,
-): Promise<HeatExposureResultFixture> {
-  const resultId = randomUUID();
-  await superuserPool.query(
-    `INSERT INTO heat_exposure_result (result_id, run_id, building_id, index_value) VALUES ($1, $2, $3, $4)`,
-    [resultId, runId, buildingId, indexValue],
-  );
-  return { resultId, runId, buildingId };
-}
-
-export async function createHeatExposureFactorValue(
-  resultId: string,
-  factorKey = 'morphology_density',
-  factorValue: number | null = 10,
-): Promise<void> {
-  await superuserPool.query(
-    `INSERT INTO heat_exposure_factor_value (result_id, factor_key, factor_value, is_computable) VALUES ($1, $2, $3, $4)`,
-    [resultId, factorKey, factorValue, factorValue !== null],
-  );
-}
-
-export interface ScenarioFixture {
-  readonly scenarioId: string;
-  readonly baselineRunId: string;
-}
-
-export async function createScenario(
-  baselineRunId: string,
-  overrides: Partial<{ name: string; derivedRunId: string | null }> = {},
-): Promise<ScenarioFixture> {
-  const scenarioId = randomUUID();
-  const name = overrides.name ?? 'Test Scenario';
-  await superuserPool.query(
-    `INSERT INTO scenario (scenario_id, baseline_run_id, derived_run_id, name, description, created_by)
-     VALUES ($1, $2, $3, $4, 'fixture scenario', 'test-suite')`,
-    [scenarioId, baselineRunId, overrides.derivedRunId ?? null, name],
-  );
-  return { scenarioId, baselineRunId };
-}
-
-export async function createScenarioOverride(
-  scenarioId: string,
-  buildingId: string,
-  sequenceNumber: number,
-  attributeName = 'roof_albedo',
-  overrideValue = '0.8',
-): Promise<void> {
-  await superuserPool.query(
-    `INSERT INTO scenario_override (scenario_id, building_id, sequence_number, attribute_name, override_value)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [scenarioId, buildingId, sequenceNumber, attributeName, overrideValue],
-  );
-}
-
 export interface MeteorologicalObservationFixture {
   readonly metObservationId: string;
   readonly provenanceId: string;

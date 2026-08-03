@@ -18,10 +18,3 @@ export type {
   SimulationRunInputDataset,
   CreateSimulationRunInputDatasetInput,
 } from './SimulationRunInputDataset';
-export type { Scenario, CreateScenarioInput } from './Scenario';
-export type { ScenarioOverride, CreateScenarioOverrideInput } from './ScenarioOverride';
-export type { HeatExposureResult, CreateHeatExposureResultInput } from './HeatExposureResult';
-export type {
-  HeatExposureFactorValue,
-  CreateHeatExposureFactorValueInput,
-} from './HeatExposureFactorValue';

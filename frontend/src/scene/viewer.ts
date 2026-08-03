@@ -40,9 +40,9 @@ export function createViewer(container: HTMLElement): Cesium.Viewer {
   // — this is the entire "minimal chrome" surface Cesium ships with.
   viewer.scene.globe.depthTestAgainstTerrain = true;
 
-  // Thermal-field visual redirect: both are real, stock Cesium
-  // post-process passes (confirmed present in this Cesium version via
-  // its own type definitions, not assumed) — cheap at this scene's
+  // Both are real, stock Cesium post-process passes (confirmed present
+  // in this Cesium version via its own type definitions, not assumed)
+  // — cheap at this scene's
   // scale. FXAA smooths the hard polygon edges the neutral light
   // buildings would otherwise show; ambient occlusion adds real
   // contact-shadow creasing between adjacent building masses, which is

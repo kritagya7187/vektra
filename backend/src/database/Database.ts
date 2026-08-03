@@ -28,11 +28,9 @@ export interface QueryResult<T> {
  *   receives another Database — not a raw PoolClient. Every repository
  *   method already accepts a Database-shaped executor, so the identical
  *   method works standalone or inside a transaction; no repository
- *   implements transaction control itself. Added in the Repository Layer
- *   subsystem, once a real multi-statement need existed (creating a
- *   Scenario and its ScenarioOverrides together, FR-8) — this was
- *   deliberately absent before that, per this file's original design
- *   note, rather than guessed at.
+ *   implements transaction control itself. Added once a real
+ *   multi-statement write need existed — deliberately absent before
+ *   that, per this file's original design note, rather than guessed at.
  */
 export interface Database {
   query<T = unknown>(text: string, params?: readonly unknown[]): Promise<QueryResult<T>>;

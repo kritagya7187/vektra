@@ -7,7 +7,7 @@ import { simulationRunService } from '../services';
 import type { Pagination, UuidParam, ValidatedRequest } from '../validators';
 import { sendData } from './respond';
 
-/** simulation_run (EDD Section 16, 17, 21). Read-only — see Subsystem 9's review for why. */
+/** simulation_run. Read-only — no trigger mechanism is implemented yet (db/migrations/0014's own open TODO). */
 
 export async function listSimulationRuns(
   req: ValidatedRequest<unknown, Pagination>,
@@ -26,11 +26,10 @@ export async function getSimulationRunById(
 }
 
 /**
- * The service returns null (not a thrown error) because other callers
- * (HeatExposureResultService) need "no baseline run yet" to be
- * non-fatal. This endpoint's entire purpose is fetching that one
- * resource, so translating an absent result to 404 here is
- * response-shaping, not a new business rule.
+ * The service returns null (not a thrown error) because some callers
+ * need "no baseline run yet" to be non-fatal. This endpoint's entire
+ * purpose is fetching that one resource, so translating an absent
+ * result to 404 here is response-shaping, not a new business rule.
  */
 export async function getLatestBaselineSimulationRun(
   _req: ValidatedRequest,
@@ -62,7 +61,6 @@ const SIMULATION_RUN_CSV_COLUMNS: readonly CsvColumn<SimulationRun>[] = [
   { header: 'updatedAt', value: (r) => r.updatedAt },
 ];
 
-/** EDD FR-13 / Section 21. */
 export async function exportSimulationRuns(
   req: ValidatedRequest<unknown, SimulationRunExportQuery>,
   res: Response,

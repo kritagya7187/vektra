@@ -4,9 +4,9 @@ import type { GeoJsonMultiPolygon } from '../api';
  * Bounding-box-center centroid — the same real technique already proven
  * correct in the backend's own rasterSampling.ts (its footprintBounds
  * + centroid fallback for footprints smaller than one raster pixel),
- * not a new geometric method invented for this file. Used to place the
- * thermal-field halo entity (scene/thermalFieldLayer.ts) at a real
- * point representative of the building's footprint.
+ * not a new geometric method invented for this file. A real point
+ * representative of a building footprint's location, for any future
+ * scene element that needs one (e.g. a label or marker anchor).
  */
 export interface LonLat {
   readonly lon: number;

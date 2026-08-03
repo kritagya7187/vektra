@@ -116,9 +116,8 @@ export class MeteorologicalObservationRepositoryImpl
   }
 
   /**
-   * Heat Exposure Engine subsystem: the single reading the
-   * meteorological_context factor applies uniformly to every building
-   * (EDD Section 18) — no averaging or interpolation across the many
+   * The single most recent reading for one variable within one resolved
+   * ingestion batch — no averaging or interpolation across the many
    * readings one ingestion batch typically contains.
    */
   async findLatestByProvenanceAndVariable(

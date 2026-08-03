@@ -4,21 +4,13 @@ import type {
   CreateBuildingInput,
   CreateDataProvenanceRecordInput,
   CreateEnvironmentalRasterAssetInput,
-  CreateHeatExposureFactorValueInput,
-  CreateHeatExposureResultInput,
   CreateMeteorologicalObservationInput,
-  CreateScenarioInput,
-  CreateScenarioOverrideInput,
   CreateSimulationRunInputDatasetInput,
   CreateSimulationRunInput,
   DataProvenanceRecord,
   DataSource,
   EnvironmentalRasterAsset,
-  HeatExposureFactorValue,
-  HeatExposureResult,
   MeteorologicalObservation,
-  Scenario,
-  ScenarioOverride,
   SimulationRun,
   SimulationRunInputDataset,
   UpdateSimulationRunStatusInput,
@@ -26,10 +18,10 @@ import type {
 
 /**
  * Pure repository CONTRACTS — no SQL, no `pg` import anywhere in this
- * file. Two generic bases (every resource in Section 21 shares the
- * universal "query X by id" / "list X" pattern) plus a small number of
- * entity-specific additions, each cited to its exact EDD grounding
- * rather than guessed at.
+ * file. Two generic bases (every resource shares the universal "query X
+ * by id" / "list X" pattern) plus a small number of entity-specific
+ * additions, each cited to the real need that motivated it rather than
+ * guessed at.
  *
  * Every method accepts an optional trailing `executor?: Database` —
  * added in the Service Layer subsystem to close a real gap: every
@@ -74,13 +66,11 @@ export interface DataProvenanceRecordRepository
     ReadRepository<DataProvenanceRecord>,
     WriteRepository<DataProvenanceRecord, CreateDataProvenanceRecordInput> {
   /**
-   * Heat Exposure Engine subsystem: Section 17's "explicit version
-   * identifier, never latest implicitly" is satisfied by resolving AND
-   * recording this value, not by never calling it "latest" at all — see
-   * this subsystem's engineering review for the full reasoning. Mirrors
-   * SimulationRunRepository.findLatestBaselineRun's existing precedent
-   * for naming a "most recent by timestamp" query explicitly rather than
-   * leaving it implicit.
+   * "Explicit version identifier, never latest implicitly" is satisfied
+   * by resolving AND recording this value, not by never calling it
+   * "latest" at all. Mirrors SimulationRunRepository.findLatestBaselineRun's
+   * existing precedent for naming a "most recent by timestamp" query
+   * explicitly rather than leaving it implicit.
    */
   findLatestBySourceCode(
     sourceCode: string,
@@ -91,13 +81,11 @@ export interface DataProvenanceRecordRepository
 export interface BuildingRepository
   extends ReadRepository<Building>, WriteRepository<Building, CreateBuildingInput> {
   /**
-   * Heat Exposure Engine subsystem: OSM ingestion is a versioned append
-   * (Section 27), so building.list() alone returns buildings across
-   * EVERY batch ever ingested. A simulation run must operate over
-   * exactly the building set belonging to ONE resolved provenance batch
-   * — this is the "reconstruct the exact building layer used for a
-   * historical simulation" mechanism, used internally by this
-   * subsystem's own service, not exposed as a new public endpoint.
+   * OSM ingestion is a versioned append, so building.list() alone
+   * returns buildings across EVERY batch ever ingested. A simulation run
+   * must operate over exactly the building set belonging to ONE resolved
+   * provenance batch — this is the "reconstruct the exact building layer
+   * used for a historical simulation" mechanism.
    */
   listByProvenanceId(provenanceId: string, executor?: Database): Promise<readonly Building[]>;
 }
@@ -115,15 +103,13 @@ export interface EnvironmentalRasterAssetRepository
     ReadRepository<EnvironmentalRasterAsset>,
     WriteRepository<EnvironmentalRasterAsset, CreateEnvironmentalRasterAssetInput> {
   /**
-   * Phase 3 Milestone 2 (Remote Sensing Foundation) — the raster
-   * ingestion subsystem's per-scene provenance model (one
+   * The raster ingestion subsystem's per-scene provenance model (one
    * DataProvenanceRecord per scene/tile, RasterAssetIngestionService's
-   * own docs) means this is always at most one row, mirroring how the
-   * Heat Exposure Engine already resolves a single meteorological
-   * provenance via findLatestBySourceCode — a real, necessary lookup for
-   * the simulation engine to find which downloaded raster file to
-   * sample for a given resolved provenance batch, not present until this
-   * milestone because nothing needed it before.
+   * own docs) means this is always at most one row, mirroring how
+   * MeteorologicalObservationRepository resolves a single provenance via
+   * findLatestByProvenanceAndVariable — a real, necessary lookup to find
+   * which downloaded raster file to sample for a given resolved
+   * provenance batch.
    */
   findByProvenanceId(
     provenanceId: string,
@@ -136,11 +122,8 @@ export interface MeteorologicalObservationRepository
     ReadRepository<MeteorologicalObservation>,
     WriteRepository<MeteorologicalObservation, CreateMeteorologicalObservationInput> {
   /**
-   * Heat Exposure Engine subsystem: the meteorological_context factor
-   * (Section 18's "applied uniformly... across the study area") uses the
-   * single most recent reading for one variable within one resolved
-   * Open-Meteo batch — no averaging/interpolation, see this subsystem's
-   * engineering review.
+   * Uses the single most recent reading for one variable within one
+   * resolved ingestion batch — no averaging/interpolation.
    */
   findLatestByProvenanceAndVariable(
     provenanceId: string,
@@ -148,36 +131,17 @@ export interface MeteorologicalObservationRepository
     executor?: Database,
   ): Promise<MeteorologicalObservation | null>;
 }
-export interface HeatExposureResultRepository
-  extends
-    ReadRepository<HeatExposureResult>,
-    WriteRepository<HeatExposureResult, CreateHeatExposureResultInput> {
-  /**
-   * EDD Section 21: "retrieve scenario-vs-baseline comparison results"
-   * and "Query Heat Exposure Index results for a given simulation run" —
-   * both need every result for one run, not a single result by its own
-   * id. Added in the Service Layer subsystem once a real caller
-   * (HeatExposureResultService / ScenarioService) needed it — this
-   * contract had no entity-specific method at all until now, per the
-   * Repository Layer subsystem's own note that only cited, real needs
-   * earn an addition here.
-   */
-  listByRunId(runId: string, executor?: Database): Promise<readonly HeatExposureResult[]>;
-}
 
 export interface SimulationRunRepository
   extends ReadRepository<SimulationRun>, WriteRepository<SimulationRun, CreateSimulationRunInput> {
-  /**
-   * EDD Section 21, verbatim: "Query Heat Exposure Index results for a
-   * given simulation run (default: latest baseline run)."
-   */
+  /** Query results for a given simulation run, defaulting to the latest baseline run. */
   findLatestBaselineRun(executor?: Database): Promise<SimulationRun | null>;
 
   /**
-   * Heat Exposure Engine subsystem: the ONLY update simulation_run ever
-   * permits (fn_guard_simulation_run_update, db/migrations/0008) — the
-   * lifecycle columns (status/started_at/completed_at/error_message),
-   * never the identity columns fixed at creation.
+   * The ONLY update simulation_run ever permits
+   * (fn_guard_simulation_run_update, db/migrations/0008) — the lifecycle
+   * columns (status/started_at/completed_at/error_message), never the
+   * identity columns fixed at creation.
    */
   updateStatus(
     runId: string,
@@ -186,64 +150,13 @@ export interface SimulationRunRepository
   ): Promise<SimulationRun>;
 }
 
-export interface ScenarioRepository
-  extends ReadRepository<Scenario>, WriteRepository<Scenario, CreateScenarioInput> {
-  /**
-   * Scenario Simulation Engine subsystem: the ONE update
-   * fn_guard_scenario_update permits — transitioning derived_run_id from
-   * NULL to a value exactly once (db/migrations/0010). Matches
-   * db/migrations/0014's column-level grant, GRANT UPDATE (derived_run_id)
-   * ON scenario TO vektra_simulation only — never a general update.
-   */
-  updateDerivedRunId(
-    scenarioId: string,
-    derivedRunId: string,
-    executor?: Database,
-  ): Promise<Scenario>;
-}
-
-export interface ScenarioOverrideRepository extends WriteRepository<
-  ScenarioOverride,
-  CreateScenarioOverrideInput
-> {
-  /**
-   * EDD Section 15: overlays are "resolved at simulation time" — this
-   * requires every override belonging to one scenario, in the order
-   * scenario_override.sequence_number preserves.
-   */
-  listByScenarioId(scenarioId: string, executor?: Database): Promise<readonly ScenarioOverride[]>;
-}
-
-export interface HeatExposureFactorValueRepository extends WriteRepository<
-  HeatExposureFactorValue,
-  CreateHeatExposureFactorValueInput
-> {
-  /**
-   * EDD Section 22: the inspection panel's "Heat Exposure Index
-   * breakdown" is the per-factor values for one result.
-   */
-  listByResultId(
-    resultId: string,
-    executor?: Database,
-  ): Promise<readonly HeatExposureFactorValue[]>;
-
-  /**
-   * Every factor row for every result under one simulation run, in a
-   * single query — the batch counterpart to listByResultId, added for
-   * scene-wide (whole-run) visualization so a caller isn't forced into
-   * one HTTP round trip per building.
-   */
-  listByRunId(runId: string, executor?: Database): Promise<readonly HeatExposureFactorValue[]>;
-}
-
 export interface SimulationRunInputDatasetRepository extends WriteRepository<
   SimulationRunInputDataset,
   CreateSimulationRunInputDatasetInput
 > {
   /**
-   * FR-12 / EDD Section 17: "the exact input dataset versions... used,
-   * sufficient to reproduce the run" — every dataset version one run
-   * consumed.
+   * "The exact input dataset versions... used, sufficient to reproduce
+   * the run" — every dataset version one run consumed.
    */
   listByRunId(runId: string, executor?: Database): Promise<readonly SimulationRunInputDataset[]>;
 }

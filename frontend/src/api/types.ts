@@ -13,12 +13,6 @@ import type { GeoJsonMultiPolygon, GeoJsonPoint, GeoJsonPolygon } from './geomet
 export type OsmType = 'way' | 'relation';
 export type RunType = 'baseline' | 'scenario';
 export type SimulationRunStatus = 'pending' | 'running' | 'completed' | 'failed';
-export type FactorKey =
-  | 'thermal_signature'
-  | 'vegetation_land_cover'
-  | 'morphology_density'
-  | 'exposure_shading'
-  | 'meteorological_context';
 
 export interface DataSource {
   readonly sourceCode: string;
@@ -73,62 +67,6 @@ export interface SimulationRun {
   readonly updatedAt: string;
 }
 
-export interface HeatExposureResult {
-  readonly resultId: string;
-  readonly runId: string;
-  readonly buildingId: string;
-  readonly indexValue: number | null;
-  readonly computedAt: string;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
-
-export interface HeatExposureFactorValue {
-  readonly factorValueId: string;
-  readonly resultId: string;
-  readonly factorKey: FactorKey;
-  readonly factorValue: number | null;
-  readonly isComputable: boolean;
-  readonly notes: string | null;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
-
-export interface Scenario {
-  readonly scenarioId: string;
-  readonly baselineRunId: string;
-  readonly derivedRunId: string | null;
-  readonly name: string;
-  readonly description: string | null;
-  readonly createdBy: string | null;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
-
-export interface ScenarioOverride {
-  readonly overrideId: string;
-  readonly scenarioId: string;
-  readonly buildingId: string;
-  readonly sequenceNumber: number;
-  readonly attributeName: string;
-  readonly overrideValue: string;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
-
-/** POST /scenarios response body's `data` — the one place ScenarioOverride rows are ever returned (see engineering review's API gap notes). */
-export interface ScenarioWithOverrides {
-  readonly scenario: Scenario;
-  readonly overrides: readonly ScenarioOverride[];
-}
-
-/** GET /scenarios/:id/comparison response body's `data`. scenarioResults is null when Scenario.derivedRunId is null — not an error state. */
-export interface ScenarioComparison {
-  readonly scenario: Scenario;
-  readonly baselineResults: readonly HeatExposureResult[];
-  readonly scenarioResults: readonly HeatExposureResult[] | null;
-}
-
 export interface EnvironmentalRasterAsset {
   readonly rasterAssetId: string;
   readonly sourceCode: string;
@@ -153,18 +91,4 @@ export interface MeteorologicalObservation {
   readonly provenanceId: string;
   readonly createdAt: string;
   readonly updatedAt: string;
-}
-
-export interface CreateScenarioOverrideRequest {
-  readonly buildingId: string;
-  readonly attributeName: string;
-  readonly overrideValue: string;
-}
-
-export interface CreateScenarioRequest {
-  readonly baselineRunId: string;
-  readonly name: string;
-  readonly description?: string | null;
-  readonly createdBy?: string | null;
-  readonly overrides: readonly CreateScenarioOverrideRequest[];
 }

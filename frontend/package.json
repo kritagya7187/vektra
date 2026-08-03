@@ -2,7 +2,7 @@
   "name": "vektra-frontend",
   "version": "0.1.0",
   "private": true,
-  "description": "VEKTRA Visualization Subsystem (EDD Section 10 #8, Section 20, 22) — CesiumJS + TypeScript digital twin client, consuming the backend REST API only.",
+  "description": "VEKTRA Visualization Subsystem — CesiumJS + TypeScript digital twin client, consuming the backend REST API only.",
   "type": "module",
   "engines": {
     "node": ">=20"

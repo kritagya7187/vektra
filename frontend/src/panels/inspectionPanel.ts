@@ -1,22 +1,14 @@
-import {
-  buildingStore,
-  setFactorBreakdownExpanded,
-  uiStore,
-  closeProvenance,
-  openProvenance,
-} from '../state';
+import { buildingStore, uiStore, closeProvenance, openProvenance } from '../state';
 import { formatNullableNumber, formatNullableText } from '../utils/formatting';
 import { clear, h, mount } from '../utils/dom';
-import { renderFactorBreakdown } from './factorBreakdown';
 import { createPanelShell, type PanelShellHandle } from './panelShell';
 import { renderProvenanceInspector } from './provenanceInspector';
 import type { PanelController } from './types';
 
 /**
- * Building Inspection Panel (design review §4 item 3, EDD Section 22):
- * "Click building -> Inspection panel -> Factor breakdown -> Provenance"
- * exactly, as three nested disclosure depths in one panel (§3), not
- * three separate overlays.
+ * Building Inspection Panel: "Click building -> Inspection panel ->
+ * Provenance" as nested disclosure depths in one panel, not separate
+ * overlays.
  */
 export function renderInspectionPanel(
   container: HTMLElement,
@@ -86,23 +78,6 @@ function renderBody(shell: PanelShellHandle): void {
     h('dd', {}, formatNullableNumber(building.footprintAreaSqm, 'm²')),
   );
 
-  const factorToggle = h(
-    'button',
-    {
-      class: 'inspection__toggle',
-      type: 'button',
-      'aria-expanded': ui.factorBreakdownExpanded ? 'true' : 'false',
-      onClick: () => setFactorBreakdownExpanded(!ui.factorBreakdownExpanded),
-    },
-    ui.factorBreakdownExpanded
-      ? 'Hide Heat Exposure Index breakdown'
-      : 'Show Heat Exposure Index breakdown',
-  );
-
-  const factorSection = ui.factorBreakdownExpanded
-    ? renderFactorBreakdown(selection.factors)
-    : null;
-
   const provenanceToggle = h(
     'button',
     {
@@ -119,7 +94,7 @@ function renderBody(shell: PanelShellHandle): void {
 
   const provenanceContainer = h('div', { class: 'inspection__provenance' });
 
-  mount(shell.body, attributes, factorToggle, factorSection, provenanceToggle, provenanceContainer);
+  mount(shell.body, attributes, provenanceToggle, provenanceContainer);
 
   if (ui.provenanceOpenForId === building.provenanceId) {
     renderProvenanceInspector(provenanceContainer, building.provenanceId);

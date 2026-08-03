@@ -1,21 +1,14 @@
 import * as Cesium from 'cesium';
 import type { GeoJsonMultiPolygon } from '../api';
-import {
-  styleForVisualizationMode,
-  type VisualizationMode,
-  type VisualizationRanges,
-} from '../domain/colorRamps';
 import { extrusionHeightFor, isHeightEstimated } from '../domain/extrusion';
-import { SELECTED_OUTLINE_CSS, styleForResult, type BuildingStyle } from '../domain/styling';
-import type { TwinBuilding } from '../domain/joinBuildingsWithResults';
+import { defaultBuildingStyle, SELECTED_OUTLINE_CSS, type BuildingStyle } from '../domain/styling';
+import type { TwinBuilding } from '../domain/twinBuildings';
 
 export const BUILDING_ENTITY_PREFIX = 'building:';
 
 /** Reduced fill opacity for buildings whose extrusion height is DEFAULT_EXTRUSION_HEIGHT_M's fallback, not a real height_m/building_levels tag — a visual "this is an estimate" cue. Alpha-based, not a dashed outline: Cesium's PolygonGraphics has no outline-material/dash support, and a dashed treatment would need a second entity per affected building. */
 const NORMAL_FILL_ALPHA = 0.85;
 const ESTIMATED_HEIGHT_FILL_ALPHA = 0.5;
-
-const EMPTY_RANGES: VisualizationRanges = { thermal: null, ndvi: null };
 
 function ringToPositions(ring: readonly (readonly [number, number])[]): Cesium.Cartesian3[] {
   const isClosed =
@@ -87,36 +80,19 @@ function createEntitiesForBuilding(
 }
 
 /**
- * Owns every building Entity in the scene. Design review §14/"Reuse
- * Entities" — setTwinBuildings() reconciles by buildingId: entities for
- * buildings no longer present are removed, entities for buildings
- * already present are re-styled in place (no remove+re-add), and only
- * genuinely new buildings get new entities. This matters most for
- * Comparison Mode (§5D): toggling baseline vs scenario styling touches
- * the SAME building set, so it is a pure re-style, not a scene rebuild.
+ * Owns every building Entity in the scene. setTwinBuildings() reconciles
+ * by buildingId: entities for buildings no longer present are removed,
+ * entities for buildings already present are re-styled in place (no
+ * remove+re-add), and only genuinely new buildings get new entities.
  */
 export class BuildingLayer {
   private readonly viewer: Cesium.Viewer;
   private readonly entitiesByBuildingId = new Map<string, Cesium.Entity[]>();
   private readonly twinByBuildingId = new Map<string, TwinBuilding>();
   private selectedBuildingId: string | null = null;
-  private visualizationMode: VisualizationMode = 'default';
-  private visualizationRanges: VisualizationRanges = EMPTY_RANGES;
 
   constructor(viewer: Cesium.Viewer) {
     this.viewer = viewer;
-  }
-
-  /** Resolves the active color source — factor-driven ramp for a data layer, or the existing (untouched) composite-index-aware neutral style for 'default'. */
-  private resolveStyle(twinBuilding: TwinBuilding): BuildingStyle {
-    if (this.visualizationMode === 'default') {
-      return styleForResult(twinBuilding.result);
-    }
-    return styleForVisualizationMode(
-      this.visualizationMode,
-      twinBuilding.factors,
-      this.visualizationRanges,
-    );
   }
 
   setTwinBuildings(twinBuildings: readonly TwinBuilding[]): void {
@@ -134,7 +110,7 @@ export class BuildingLayer {
 
     for (const twinBuilding of twinBuildings) {
       const buildingId = twinBuilding.building.buildingId;
-      const style = this.resolveStyle(twinBuilding);
+      const style = defaultBuildingStyle();
       const selected = buildingId === this.selectedBuildingId;
       const fillAlpha = fillAlphaFor(twinBuilding);
       const existing = this.entitiesByBuildingId.get(buildingId);
@@ -156,33 +132,6 @@ export class BuildingLayer {
     }
   }
 
-  /**
-   * Switches which data layer colors the scene and re-styles every
-   * building already present, in place — the same "re-style, don't
-   * rebuild" reconciliation setTwinBuildings already uses for Comparison
-   * Mode. Ranges are passed in (not computed here) because they depend
-   * on the full twin-building set, which callers already hold in state —
-   * this class stays free of any state/ import, per its own layering
-   * rule.
-   */
-  setVisualizationMode(mode: VisualizationMode, ranges: VisualizationRanges): void {
-    this.visualizationMode = mode;
-    this.visualizationRanges = ranges;
-
-    for (const [buildingId, entities] of this.entitiesByBuildingId) {
-      const twin = this.twinByBuildingId.get(buildingId);
-      if (!twin) {
-        continue;
-      }
-      const style = this.resolveStyle(twin);
-      const selected = buildingId === this.selectedBuildingId;
-      const fillAlpha = fillAlphaFor(twin);
-      for (const entity of entities) {
-        applyStyle(entity, style, selected, fillAlpha);
-      }
-    }
-  }
-
   setSelected(buildingId: string | null): void {
     const previous = this.selectedBuildingId;
     this.selectedBuildingId = buildingId;
@@ -191,7 +140,7 @@ export class BuildingLayer {
       const twin = this.twinByBuildingId.get(previous);
       const entities = this.entitiesByBuildingId.get(previous);
       if (twin && entities) {
-        const style = this.resolveStyle(twin);
+        const style = defaultBuildingStyle();
         for (const entity of entities) {
           applyStyle(entity, style, false, fillAlphaFor(twin));
         }
@@ -201,7 +150,7 @@ export class BuildingLayer {
       const twin = this.twinByBuildingId.get(buildingId);
       const entities = this.entitiesByBuildingId.get(buildingId);
       if (twin && entities) {
-        const style = this.resolveStyle(twin);
+        const style = defaultBuildingStyle();
         for (const entity of entities) {
           applyStyle(entity, style, true, fillAlphaFor(twin));
         }

@@ -4,8 +4,6 @@ import {
   createBuilding,
   createDataProvenanceRecord,
   createEnvironmentalRasterAsset,
-  createHeatExposureFactorValue,
-  createHeatExposureResult,
   createSimulationRun,
 } from '../helpers/fixtures';
 
@@ -107,69 +105,5 @@ describe('GET /api/simulation-runs', () => {
     const res = await testApp().get(`/api/simulation-runs/${run.runId}`);
     expect(res.status).toBe(200);
     expect(res.body.data.runId).toBe(run.runId);
-  });
-});
-
-describe('GET /api/heat-exposure-results', () => {
-  it('defaults to the latest baseline run when runId is omitted (EDD Section 21)', async () => {
-    const baseline = await createSimulationRun({ runType: 'baseline', status: 'completed' });
-    const building = await createBuilding();
-    await createHeatExposureResult(baseline.runId, building.buildingId);
-
-    const res = await testApp().get('/api/heat-exposure-results');
-    expect(res.status).toBe(200);
-    expect(res.body.data).toHaveLength(1);
-    expect(res.body.data[0].runId).toBe(baseline.runId);
-  });
-
-  it(':id/factors returns the per-factor breakdown', async () => {
-    const run = await createSimulationRun();
-    const building = await createBuilding();
-    const result = await createHeatExposureResult(run.runId, building.buildingId);
-    await createHeatExposureFactorValue(result.resultId, 'morphology_density', 5);
-
-    const res = await testApp().get(`/api/heat-exposure-results/${result.resultId}/factors`);
-    expect(res.status).toBe(200);
-    expect(res.body.data).toHaveLength(1);
-    expect(res.body.data[0].factorKey).toBe('morphology_density');
-  });
-
-  it(':id/factors 404s for an unknown result id', async () => {
-    const res = await testApp().get(`/api/heat-exposure-results/${NONEXISTENT_UUID}/factors`);
-    expect(res.status).toBe(404);
-  });
-
-  it('/factors is a distinct route, not swallowed by /:id (resolves before the UUID param route)', async () => {
-    const run = await createSimulationRun();
-    const buildingA = await createBuilding();
-    const buildingB = await createBuilding();
-    const resultA = await createHeatExposureResult(run.runId, buildingA.buildingId);
-    const resultB = await createHeatExposureResult(run.runId, buildingB.buildingId);
-    await createHeatExposureFactorValue(resultA.resultId, 'morphology_density', 5);
-    await createHeatExposureFactorValue(resultB.resultId, 'thermal_signature', 315.2);
-
-    const res = await testApp().get(`/api/heat-exposure-results/factors?runId=${run.runId}`);
-    expect(res.status).toBe(200);
-    expect(res.body.data).toHaveLength(2);
-    expect(res.body.data.map((f: { resultId: string }) => f.resultId).sort()).toEqual(
-      [resultA.resultId, resultB.resultId].sort(),
-    );
-  });
-
-  it('/factors defaults to the latest baseline run when runId is omitted', async () => {
-    const baseline = await createSimulationRun({ runType: 'baseline', status: 'completed' });
-    const building = await createBuilding();
-    const result = await createHeatExposureResult(baseline.runId, building.buildingId);
-    await createHeatExposureFactorValue(result.resultId, 'thermal_signature', 310.1);
-
-    const res = await testApp().get('/api/heat-exposure-results/factors');
-    expect(res.status).toBe(200);
-    expect(res.body.data).toHaveLength(1);
-    expect(res.body.data[0].resultId).toBe(result.resultId);
-  });
-
-  it('/factors 404s when no runId given and no completed baseline run exists', async () => {
-    const res = await testApp().get('/api/heat-exposure-results/factors');
-    expect(res.status).toBe(404);
   });
 });
