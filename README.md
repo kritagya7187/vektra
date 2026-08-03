@@ -1,7 +1,7 @@
 # VEKTRA
 
 Building-Level Urban Heat Resilience Digital Twin for South Mumbai.
-<img width="1376" height="768" alt="VEKTRA_Logo" src="https://github.com/user-attachments/assets/e44d2692-e117-40a7-bbec-6decee727c8a" />
+<img width="1312" height="616" alt="VEKTRA_Logo" src="https://github.com/user-attachments/assets/382691e4-06f6-4e52-9ba7-425778401206" />
 
 Monorepo per the Engineering Design Document (Section 35). Modules:
 
