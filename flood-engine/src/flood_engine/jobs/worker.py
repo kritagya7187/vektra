@@ -22,7 +22,14 @@ import threading
 from datetime import timedelta
 from types import FrameType
 
-from flood_engine.config import LoggingConfig, SimulationExecutionConfig
+from psycopg_pool import ConnectionPool
+
+from flood_engine.config import (
+    DatabaseConfig,
+    LoggingConfig,
+    SimulationExecutionConfig,
+    load_config,
+)
 from flood_engine.core.solver.wca2d import WCA2DError
 from flood_engine.core.timestepping import TimesteppingError
 from flood_engine.jobs.models import ClaimedJob, RunId
@@ -36,6 +43,8 @@ from flood_engine.logging_config import (
     run_context,
 )
 from flood_engine.output.generator import generate_summary
+from flood_engine.persistence.repository import PostgresJobRepository
+from flood_engine.persistence.schema import ensure_schema
 from flood_engine.simulation.controller import SimulationControllerError
 from flood_engine.simulation.controller import run as run_simulation_controller
 
@@ -233,24 +242,61 @@ def _install_shutdown_handler(stop_signal: threading.Event) -> None:
     signal.signal(signal.SIGINT, _handle)
 
 
-def _build_repository() -> JobRepository:
+def _build_conninfo(database_config: DatabaseConfig) -> str:
+    """Build a psycopg conninfo string from deployment configuration.
+
+    Deliberately not imported from ``persistence.repository`` -- that
+    module's own ``_build_conninfo`` is private (module-internal), and
+    reaching into another package's underscore-prefixed name would create
+    exactly the kind of implicit coupling the frozen dependency direction
+    (``persistence`` depends on ``jobs``, never the reverse) is meant to
+    prevent. Same field order/format as the persistence layer's own
+    implementation and every existing integration test's pool fixture.
+
+    Args:
+        database_config: Connection settings.
+
+    Returns:
+        A space-separated ``key=value`` conninfo string.
+    """
+    return (
+        f"host={database_config.postgres_host} "
+        f"port={database_config.postgres_port} "
+        f"dbname={database_config.postgres_db} "
+        f"user={database_config.postgres_user} "
+        f"password={database_config.postgres_password.get_secret_value()}"
+    )
+
+
+def _build_repository() -> PostgresJobRepository:
     """Construct the concrete persistence implementation for standalone execution.
 
-    Not available until Step 17 exists. Deliberately does not guess at
-    Step 17's eventual module layout or class name -- that is Step 17's
-    own design decision, not this step's to invent (per the frozen
-    architecture: "do not anticipate Step 17"). Raises clearly instead of
-    silently failing or fabricating a fake implementation for real use.
+    Step 17 (``flood_engine.persistence``) now provides a concrete
+    :class:`~flood_engine.persistence.repository.PostgresJobRepository`
+    satisfying :class:`~flood_engine.jobs.repository.JobRepository`
+    structurally. Loads deployment configuration the same way
+    :func:`~flood_engine.config.load_config` documents, opens the
+    connection pool directly (rather than via ``from_config``, so this
+    function can also run :func:`~flood_engine.persistence.schema.ensure_schema`
+    on the same pool before constructing the repository) so a fresh
+    database is usable without a separate manual migration step --
+    matching how every existing integration test already establishes
+    schema before using the repository.
 
-    Raises:
-        NotImplementedError: always, until Step 17 provides a concrete
-            :class:`~flood_engine.jobs.repository.JobRepository`.
+    Returns:
+        A repository backed by a real, open, schema-ready connection pool.
     """
-    raise NotImplementedError(
-        "flood_engine.jobs.worker has no concrete JobRepository to run against yet -- "
-        "Step 17 (PostgreSQL/PostGIS persistence) must be implemented first. See "
-        "flood_engine.jobs.repository.JobRepository for the interface it must satisfy."
+    config = load_config()
+    pool = ConnectionPool(
+        conninfo=_build_conninfo(config.database),
+        min_size=config.database.postgres_pool_min_size,
+        max_size=config.database.postgres_pool_max_size,
+        open=True,
     )
+    with pool.connection() as conn:
+        ensure_schema(conn)
+        conn.commit()
+    return PostgresJobRepository(pool, output_storage_dir=config.storage.flood_output_storage_dir)
 
 
 def main() -> None:
@@ -259,11 +305,10 @@ def main() -> None:
     stop_signal = threading.Event()
     _install_shutdown_handler(stop_signal)
     repository = _build_repository()
-    # Structurally unreachable in tests until Step 17 exists:
-    # _build_repository() unconditionally raises above, by design (see
-    # its own docstring) -- this line cannot execute until a real
-    # JobRepository is available to pass in.
-    run_worker(repository, shutdown=stop_signal)  # pragma: no cover
+    try:
+        run_worker(repository, shutdown=stop_signal)
+    finally:
+        repository.close()
 
 
 if __name__ == "__main__":  # pragma: no cover -- standard entrypoint guard, never hit on import

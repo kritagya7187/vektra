@@ -17,7 +17,6 @@ tested separately with the same defensive fixture ``test_app.py``
 established for exactly this reason.
 """
 
-import logging
 import signal
 import threading
 from datetime import UTC, datetime, timedelta
@@ -25,16 +24,16 @@ from datetime import UTC, datetime, timedelta
 import numpy as np
 import pytest
 from numpy.typing import NDArray
+from pydantic import SecretStr
 
-from flood_engine.config import SimulationExecutionConfig
+from flood_engine.config import DatabaseConfig, SimulationExecutionConfig
 from flood_engine.core.solver.wca2d import SolverParameters
 from flood_engine.jobs.models import ClaimedJob, JobStatus, RunId
 from flood_engine.jobs.worker import (
-    _build_repository,
+    _build_conninfo,
     _install_shutdown_handler,
     cancel_pending_job,
     execute_job,
-    main,
     run_worker,
     sweep_stuck_jobs,
 )
@@ -332,9 +331,34 @@ class TestRunWorkerLoop:
 
 
 class TestWorkerStartupShutdown:
-    def test_build_repository_raises_not_implemented(self) -> None:
-        with pytest.raises(NotImplementedError, match="Step 17"):
-            _build_repository()
+    def test_build_conninfo_includes_every_connection_field(self) -> None:
+        # _build_repository() itself opens a real connection pool and
+        # calls ensure_schema() against a real database -- covered for
+        # real in tests/integration/test_worker_end_to_end.py, matching
+        # this project's established preference (see
+        # tests/unit/persistence/test_repository.py's own docstring) for
+        # exercising real DB-backed behavior against a disposable test
+        # database rather than elaborately mocking psycopg/psycopg_pool.
+        # This unit test covers only the pure, DB-independent piece:
+        # conninfo string construction, mirroring persistence.repository's
+        # own _build_conninfo test exactly (worker.py deliberately does
+        # not import that private helper -- see _build_conninfo's own
+        # docstring).
+        config = DatabaseConfig(
+            postgres_host="dbhost",
+            postgres_port=5433,
+            postgres_db="flood_engine",
+            postgres_user="flood_user",
+            postgres_password=SecretStr("s3cret"),
+        )
+
+        conninfo = _build_conninfo(config)
+
+        assert "host=dbhost" in conninfo
+        assert "port=5433" in conninfo
+        assert "dbname=flood_engine" in conninfo
+        assert "user=flood_user" in conninfo
+        assert "password=s3cret" in conninfo
 
     def test_install_shutdown_handler_sets_event_on_sigint(self) -> None:
         original_sigint = signal.getsignal(signal.SIGINT)
@@ -357,28 +381,6 @@ class TestWorkerStartupShutdown:
             signal.raise_signal(signal.SIGTERM)
             assert stop_signal.is_set()
         finally:
-            signal.signal(signal.SIGINT, original_sigint)
-            signal.signal(signal.SIGTERM, original_sigterm)
-
-    def test_main_raises_when_no_repository_available(self) -> None:
-        # main() calls configure_logging() (it is a real process
-        # entrypoint, called at most once per process -- the correct
-        # place for it, unlike api.app.create_app()'s own earlier bug).
-        # Reset global logger state after, matching test_app.py's
-        # established pattern, so this doesn't leak into other test files.
-        logger = logging.getLogger("flood_engine")
-        original_handlers = list(logger.handlers)
-        original_level = logger.level
-        original_propagate = logger.propagate
-        original_sigint = signal.getsignal(signal.SIGINT)
-        original_sigterm = signal.getsignal(signal.SIGTERM)
-        try:
-            with pytest.raises(NotImplementedError, match="Step 17"):
-                main()
-        finally:
-            logger.handlers = original_handlers
-            logger.setLevel(original_level)
-            logger.propagate = original_propagate
             signal.signal(signal.SIGINT, original_sigint)
             signal.signal(signal.SIGTERM, original_sigterm)
 

@@ -68,8 +68,8 @@ class DomainInputs:
 
     All fields share ``water_depth_m``'s shape. None of these originate
     from this module -- ``elevation_m`` from Step 7, ``building_mask``
-    from Step 9, ``manning_n`` from the (not-yet-built)
-    ``core.solver.roughness`` crosswalk over Step 8's land-cover raster.
+    from Step 9, ``manning_n`` from the ``core.solver.roughness``
+    crosswalk (Step 18) over Step 8's land-cover raster.
 
     Attributes:
         elevation_m: Terrain elevation ``z(x,y)`` in meters, static.
@@ -282,10 +282,10 @@ def step(
             adaptive sub-steps within that hour is the caller's
             (Step 12's) responsibility, not resolved here.
         infiltration_loss_mm_per_hr: Per-cell infiltration loss rate,
-            already computed (by the not-yet-built
-            ``core.solver.infiltration`` SCS-CN crosswalk) -- this
-            function consumes the rate, it does not compute it. Read and
-            applied only when ``apply_infiltration`` is ``True``.
+            already computed (by the ``core.solver.infiltration``
+            crosswalk, Step 18) -- this function consumes the rate, it
+            does not compute it. Read and applied only when
+            ``apply_infiltration`` is ``True``.
         dt_s: The timestep to use for this update, in seconds.
         apply_infiltration: Whether infiltration removal is performed on
             this call. Required, no default -- a scientifically
