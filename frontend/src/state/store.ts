@@ -39,5 +39,5 @@ export class Store<T> {
   }
 }
 
-/** Shared shape for every async-loaded state domain (Run/Building/Scenario) — one consistent loading/error contract, no domain reinvents its own. */
+/** Shared shape for every async-loaded state domain (Run/Building/...) — one consistent loading/error contract, no domain reinvents its own. */
 export type AsyncStatus = 'idle' | 'loading' | 'loaded' | 'error';

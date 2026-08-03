@@ -79,8 +79,8 @@ export class SimulationRunRepositoryImpl
   }
 
   /**
-   * EDD Section 21, verbatim: "Query Heat Exposure Index results for a
-   * given simulation run (default: latest baseline run)."
+   * Query results for a given simulation run, defaulting to the latest
+   * completed baseline run.
    *
    * Would benefit from the composite index (run_type, status,
    * created_at DESC) recommended in the earlier DB architectural review
@@ -101,8 +101,9 @@ export class SimulationRunRepositoryImpl
   }
 
   /**
-   * Heat Exposure Engine subsystem — the only writer (db/migrations/0014
-   * grants INSERT/UPDATE on simulation_run to vektra_simulation only).
+   * db/migrations/0014 grants INSERT/UPDATE on simulation_run to the
+   * vektra_simulation database role only — this method is exercised by
+   * code running under that role, not the API's own read-only role.
    * status/started_at/completed_at/error_message are never supplied
    * here: status defaults to 'pending' at the database level (migration
    * 0008), and the other three are NULL until updateStatus() below sets

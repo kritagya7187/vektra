@@ -20,16 +20,3 @@ export {
   SimulationRunInputDatasetRepositoryImpl,
   simulationRunInputDatasetRepository,
 } from './SimulationRunInputDatasetRepository';
-export { ScenarioRepositoryImpl, scenarioRepository } from './ScenarioRepository';
-export {
-  ScenarioOverrideRepositoryImpl,
-  scenarioOverrideRepository,
-} from './ScenarioOverrideRepository';
-export {
-  HeatExposureResultRepositoryImpl,
-  heatExposureResultRepository,
-} from './HeatExposureResultRepository';
-export {
-  HeatExposureFactorValueRepositoryImpl,
-  heatExposureFactorValueRepository,
-} from './HeatExposureFactorValueRepository';

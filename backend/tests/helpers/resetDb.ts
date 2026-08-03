@@ -12,8 +12,6 @@ import { superuserPool } from './superuserPool';
  * overhead for a table nothing ever changes.
  */
 const MUTABLE_TABLES = [
-  'heat_exposure_factor_value',
-  'heat_exposure_result',
   'scenario_override',
   'scenario',
   'simulation_run_input_dataset',

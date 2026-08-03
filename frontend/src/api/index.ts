@@ -15,18 +15,4 @@ export {
   listSimulationRunsPage,
   simulationRunsCsvExportUrl,
 } from './simulationRuns';
-export {
-  listHeatExposureResultsForRun,
-  listHeatExposureFactorsForRun,
-  getHeatExposureResult,
-  getHeatExposureResultFactors,
-  heatExposureResultsCsvExportUrl,
-} from './heatExposureResults';
-export {
-  listScenariosPage,
-  getScenario,
-  createScenario,
-  getScenarioComparison,
-  scenariosCsvExportUrl,
-} from './scenarios';
 export { getDataProvenanceRecord, getDataSource } from './dataProvenance';

@@ -27,20 +27,6 @@ export const SIMULATION_RUN_STATUSES = ['pending', 'running', 'completed', 'fail
 export type SimulationRunStatus = (typeof SIMULATION_RUN_STATUSES)[number];
 
 /**
- * heat_exposure_factor_value.factor_key CHECK constraint
- * (db/migrations/0013) — the 5 candidate conceptual factors named in EDD
- * Section 18.
- */
-export const FACTOR_KEYS = [
-  'thermal_signature',
-  'vegetation_land_cover',
-  'morphology_density',
-  'exposure_shading',
-  'meteorological_context',
-] as const;
-export type FactorKey = (typeof FACTOR_KEYS)[number];
-
-/**
  * The closed set of external data sources (EDD Section 13), as currently
  * seeded into data_source (db/seeds/0001_data_sources.sql).
  *

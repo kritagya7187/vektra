@@ -3,9 +3,6 @@ import { testApp } from '../helpers/testApp';
 import {
   createBuilding,
   createEnvironmentalRasterAsset,
-  createHeatExposureResult,
-  createScenario,
-  createScenarioOverride,
   createSimulationRun,
 } from '../helpers/fixtures';
 
@@ -70,38 +67,7 @@ describe('GET /api/buildings/export (CSV + GeoJSON)', () => {
   });
 });
 
-describe('CSV-only exports (Heat Exposure Results, Scenarios, Simulation Runs, Environmental Raster Assets)', () => {
-  it('GET /api/heat-exposure-results/export?format=geojson is rejected — not a supported format for this resource', async () => {
-    const res = await testApp().get('/api/heat-exposure-results/export?format=geojson');
-    expect(res.status).toBe(400);
-    expect(res.body.error.details[0].message).toBe('must be one of: csv');
-  });
-
-  it('GET /api/heat-exposure-results/export?format=csv returns the run’s results as CSV', async () => {
-    const run = await createSimulationRun();
-    const building = await createBuilding();
-    await createHeatExposureResult(run.runId, building.buildingId, 0.5);
-
-    const res = await testApp().get(
-      `/api/heat-exposure-results/export?format=csv&runId=${run.runId}`,
-    );
-    expect(res.status).toBe(200);
-    expect(res.headers['content-type']).toBe('text/csv; charset=utf-8');
-    expect(res.text.trim().split('\r\n')).toHaveLength(2);
-  });
-
-  it('GET /api/scenarios/export?format=csv returns scenario rows, not overrides', async () => {
-    const baseline = await createSimulationRun({ runType: 'baseline', status: 'completed' });
-    const scenario = await createScenario(baseline.runId, { name: 'Export me' });
-    const building = await createBuilding();
-    await createScenarioOverride(scenario.scenarioId, building.buildingId, 0);
-
-    const res = await testApp().get('/api/scenarios/export?format=csv');
-    expect(res.status).toBe(200);
-    expect(res.text).toContain('Export me');
-    expect(res.text).not.toContain('roof_albedo');
-  });
-
+describe('CSV-only exports (Simulation Runs, Environmental Raster Assets)', () => {
   it('GET /api/simulation-runs/export?format=csv includes null fields (e.g. baselineRunId for a baseline run) as empty cells', async () => {
     await createSimulationRun({ runType: 'baseline', status: 'completed' });
     const res = await testApp().get('/api/simulation-runs/export?format=csv');

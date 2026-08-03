@@ -28,16 +28,14 @@ import type { RasterDatasetClient, RasterDatasetMetadata, RasterQuery } from '..
  * instrument USGS missions — not an invented data source) rather than an
  * attempt at exact parity with a path that never worked.
  *
- * Band reconstruction: factors.ts hardcodes LANDSAT_BAND_ST=0,
- * LANDSAT_BAND_DATAMASK=1 against [ST_B10, dataMask]. EE's real band
- * name for this collection is also literally 'ST_B10'. Real, disclosed,
- * necessary correction: USGS's own Collection 2 Level-2 Science Product
- * Guide documents ST_B10's raw digital number requires
+ * Band reconstruction: the requested band order is [ST_B10, dataMask].
+ * EE's real band name for this collection is also literally 'ST_B10'.
+ * Real, disclosed, necessary correction: USGS's own Collection 2 Level-2
+ * Science Product Guide documents ST_B10's raw digital number requires
  * `DN * 0.00341802 + 149.0` to yield actual Kelvin — applied here so the
- * exported value genuinely satisfies factors.ts's own existing "already-
- * calibrated Kelvin" assumption (computeThermalSignatureFactor treats
- * the sampled value as raw Kelvin with no further conversion) — this is
- * the official USGS scale/offset, not an invented formula.
+ * exported value is already-calibrated Kelvin, not a raw digital number
+ * requiring further conversion by any downstream consumer — this is the
+ * official USGS scale/offset, not an invented formula.
  *
  * Acceptance check: unlike SRTM/WorldCover/Sentinel-2, there is no
  * working independent oracle for Landsat in this project (the point of

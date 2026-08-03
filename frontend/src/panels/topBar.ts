@@ -29,7 +29,6 @@ export function renderTopBar(
     const nav = h(
       'nav',
       { class: 'topbar__actions', 'aria-label': 'Panels' },
-      h('button', { type: 'button', onClick: () => onOpenPanel('scenarioWorkspace') }, 'Scenarios'),
       h('button', { type: 'button', onClick: () => onOpenPanel('export') }, 'Export'),
     );
 

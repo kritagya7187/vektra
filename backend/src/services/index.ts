@@ -12,12 +12,3 @@ export {
   meteorologicalObservationService,
 } from './MeteorologicalObservationService';
 export { SimulationRunService, simulationRunService } from './SimulationRunService';
-export { HeatExposureResultService, heatExposureResultService } from './HeatExposureResultService';
-export type { HeatExposureResultWithFactors } from './HeatExposureResultService';
-export { ScenarioService, scenarioService } from './ScenarioService';
-export type {
-  CreateScenarioOverrideItem,
-  CreateScenarioWithOverridesInput,
-  ScenarioComparison,
-  ScenarioWithOverrides,
-} from './ScenarioService';

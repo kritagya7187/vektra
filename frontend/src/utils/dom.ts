@@ -3,8 +3,8 @@
  * no virtual DOM, no diffing. Panels re-render by clearing and rebuilding
  * their own small subtree on state change (utils/dom.ts's `clear` +
  * fresh `h()` calls), which is simple and fast enough at this app's real
- * data scale (one selected building's detail, one scenario's overrides,
- * a legend, a top bar) — deliberately not the technique used for the
+ * data scale (one selected building's detail, a top bar, a handful of
+ * small panels) — deliberately not the technique used for the
  * building layer itself, which is Cesium's own optimized scene graph
  * (scene/buildingLayer.ts), never DOM.
  */

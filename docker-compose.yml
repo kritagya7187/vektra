@@ -1,28 +1,15 @@
-# VEKTRA docker-compose — Sections 7 (Modularity) and 34 (Deployment
-# Strategy: "Docker Compose for local/development environment
-# orchestration... single-node deployment").
-#
-# Phase 2H (Docker & Deployment): three real, buildable services — `db`,
-# `backend`, `frontend`. This reflects the IMPLEMENTED architecture, not
-# the EDD's original conceptual layout: ingestion (FR-1..FR-5) and
-# simulation (FR-7, FR-9) are NOT separate services here, because they
-# were never built as separate applications. They are TypeScript CLI
-# entry points inside backend/src (backend/src/ingestion/run*.ts,
-# backend/src/simulation/run*.ts, run via `npm run ingest:*` /
-# `npm run simulate:*` — see backend/package.json), compiled into the
-# exact same dist/ this backend image already ships. They are invoked as
-# one-shot commands against the running `backend` image/service, e.g.:
+# VEKTRA docker-compose — three real, buildable services: `db`, `backend`,
+# `frontend`. Data ingestion (OSM, remote sensing, meteorological) is NOT a
+# separate service here — it is a set of TypeScript CLI entry points inside
+# backend/src (backend/src/ingestion/run*.ts, run via `npm run ingest:*` —
+# see backend/package.json), compiled into the exact same dist/ this
+# backend image already ships. Invoked as one-shot commands against the
+# running `backend` image/service, e.g.:
 #
 #   docker compose run --rm backend npm run ingest:osm
-#   docker compose run --rm backend npm run simulate:heat-exposure
 #
-# No `ingestion`/`simulation` service definitions exist below. Adding
-# `build: ./ingestion` / `build: ./simulation` stubs (as a prior phase's
-# compose file did) would point at directories containing no application
-# code and no Dockerfile (ingestion/, simulation/ at repo root remain
-# Phase 1 scaffolding — READMEs only) and would fail immediately, while
-# also misrepresenting where the real, working implementation actually
-# lives.
+# The flood-engine/ Python microservice is not yet wired into this compose
+# file (see flood-engine/README.md for its own status).
 #
 # Required environment variables (see .env.example): POSTGRES_DB,
 # POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_SUPERUSER_PASSWORD,

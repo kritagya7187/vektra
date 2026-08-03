@@ -21,22 +21,3 @@ export {
   exportSimulationRuns,
 } from './SimulationRunController';
 export type { SimulationRunExportQuery } from './SimulationRunController';
-export {
-  listHeatExposureResults,
-  listHeatExposureResultFactorsForRun,
-  getHeatExposureResultById,
-  getHeatExposureResultFactors,
-  exportHeatExposureResults,
-} from './HeatExposureResultController';
-export type {
-  HeatExposureResultListQuery,
-  HeatExposureResultExportQuery,
-} from './HeatExposureResultController';
-export {
-  listScenarios,
-  getScenarioById,
-  createScenario,
-  getScenarioComparison,
-  exportScenarios,
-} from './ScenarioController';
-export type { ScenarioExportQuery } from './ScenarioController';
