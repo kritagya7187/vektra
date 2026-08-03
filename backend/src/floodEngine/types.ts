@@ -45,6 +45,9 @@ export interface TimesteppingParametersOverride {
  * module docstring for why: no `flood_scenario` object exists yet to
  * define an alternative).
  */
+/** ``[west, south, east, north]`` in EPSG:4326 -- Step 20 map-display metadata only, never a scientific parameter. */
+export type AoiBoundsWgs84 = readonly [west: number, south: number, east: number, north: number];
+
 export interface SubmitSimulationRequest {
   readonly scenarioId: string;
   readonly elevationPath: string;
@@ -54,6 +57,7 @@ export interface SubmitSimulationRequest {
   readonly rainfallRatesPath: string;
   readonly solverParameters?: SolverParametersOverride;
   readonly timesteppingParameters?: TimesteppingParametersOverride;
+  readonly aoiBoundsWgs84?: AoiBoundsWgs84;
 }
 
 export interface SubmitSimulationResult {
@@ -70,6 +74,7 @@ export interface SimulationRunStatus {
   readonly completedAt: string | null;
   readonly cancelledAt: string | null;
   readonly errorMessage: string | null;
+  readonly aoiBoundsWgs84: AoiBoundsWgs84 | null;
 }
 
 /** Field-for-field mirror of flood_engine's MassLedgerSchema -- no unit conversion, no rounding. */
@@ -133,6 +138,7 @@ export interface SubmitSimulationRequestWire {
   readonly rainfall_rates_path: string;
   readonly solver_parameters?: SolverParametersOverrideWire;
   readonly timestepping_parameters?: TimesteppingParametersOverrideWire;
+  readonly aoi_bounds_wgs84?: AoiBoundsWgs84;
 }
 
 export interface SubmitSimulationResponseWire {
@@ -149,6 +155,7 @@ export interface SimulationRunStatusWire {
   readonly completed_at: string | null;
   readonly cancelled_at: string | null;
   readonly error_message: string | null;
+  readonly aoi_bounds_wgs84: AoiBoundsWgs84 | null;
 }
 
 export interface MassLedgerWire {

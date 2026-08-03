@@ -2,7 +2,7 @@
   "name": "vektra-frontend",
   "version": "0.1.0",
   "private": true,
-  "description": "VEKTRA Visualization Subsystem — CesiumJS + TypeScript digital twin client, consuming the backend REST API only.",
+  "description": "VEKTRA Visualization Subsystem — MapLibre GL JS + deck.gl + TypeScript digital twin client, consuming the backend REST API only.",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -20,7 +20,13 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "cesium": "^1.121.1"
+    "maplibre-gl": "^6.1.0",
+    "@deck.gl/core": "^9.3.7",
+    "@deck.gl/layers": "^9.3.7",
+    "@deck.gl/geo-layers": "^9.3.7",
+    "@deck.gl/mapbox": "^9.3.7",
+    "@luma.gl/core": "^9.3.3",
+    "@loaders.gl/3d-tiles": "^4.4.4"
   },
   "devDependencies": {
     "@types/node": "^22.7.5",
@@ -30,7 +36,6 @@
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.8.1",
     "vite": "^5.4.10",
-    "vite-plugin-cesium": "^1.2.23",
     "vitest": "^2.1.4"
   }
 }

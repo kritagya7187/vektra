@@ -1,16 +1,13 @@
 import { defineConfig } from 'vite';
-import cesium from 'vite-plugin-cesium';
 
 /**
- * vite-plugin-cesium handles the one piece of build plumbing Cesium
- * genuinely requires with any bundler — copying its static Workers/
- * Assets/Widgets/ThirdParty assets into the build output and setting
- * `window.CESIUM_BASE_URL` so the library can find them at runtime. This
- * is asset wiring for the approved CesiumJS dependency (EDD Section 12,
- * 20), not an added framework or plugin ecosystem.
+ * Step 20: MapLibre GL JS + deck.gl need no special bundler plugin (both
+ * are plain npm packages with their own CSS imported directly from
+ * source, unlike Cesium's Workers/Assets/Widgets static-file requirement
+ * vite-plugin-cesium existed to solve) -- this file is now a plain Vite
+ * config.
  */
 export default defineConfig({
-  plugins: [cesium()],
   server: {
     port: 5173,
   },

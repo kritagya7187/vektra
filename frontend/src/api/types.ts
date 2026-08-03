@@ -92,3 +92,61 @@ export interface MeteorologicalObservation {
   readonly createdAt: string;
   readonly updatedAt: string;
 }
+
+/**
+ * Step 20: DTOs mirroring backend/src/floodEngine/types.ts field-for-field
+ * (the Node backend's own flood-engine client, Step 19), consumed here
+ * through the new /api/flood-simulations proxy routes (Step 20 Part 0b)
+ * — a distinct 5-state job-lifecycle system from `SimulationRunStatus`
+ * above (the older, unrelated heat-exposure engine's 4-state system),
+ * named separately to avoid confusing the two.
+ */
+export type FloodSimulationStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+/** `[west, south, east, north]` in EPSG:4326 — map-display metadata only, never a scientific parameter. */
+export type AoiBoundsWgs84 = readonly [west: number, south: number, east: number, north: number];
+
+export interface SubmitFloodSimulationRequest {
+  readonly scenarioId: string;
+  readonly elevationPath: string;
+  readonly buildingMaskPath: string;
+  readonly manningNPath: string;
+  readonly infiltrationLossPath: string;
+  readonly rainfallRatesPath: string;
+  readonly aoiBoundsWgs84?: AoiBoundsWgs84;
+}
+
+export interface FloodSimulationSubmitResult {
+  readonly runId: string;
+  readonly status: FloodSimulationStatus;
+}
+
+export interface FloodSimulationRunStatus {
+  readonly runId: string;
+  readonly scenarioId: string;
+  readonly status: FloodSimulationStatus;
+  readonly createdAt: string;
+  readonly startedAt: string | null;
+  readonly completedAt: string | null;
+  readonly cancelledAt: string | null;
+  readonly errorMessage: string | null;
+  readonly aoiBoundsWgs84: AoiBoundsWgs84 | null;
+}
+
+export interface FloodMassLedger {
+  readonly rainfallInputM3: number;
+  readonly infiltrationLossM3: number;
+  readonly boundaryOutflowM3: number;
+}
+
+/** Step 14's three real per-cell summary rasters, plus run-level metadata — nothing here is recomputed client-side. */
+export interface FloodOutputSummary {
+  readonly maxDepthM: readonly (readonly number[])[];
+  readonly arrivalTimeMin: readonly (readonly (number | null)[])[];
+  readonly durationAboveThresholdMin: readonly (readonly number[])[];
+  readonly massLedger: FloodMassLedger;
+  readonly stepCount: number;
+  readonly simulatedDurationS: number;
+}
+
+export type FloodSimulationArtifact = 'max-depth' | 'arrival-time' | 'duration-above-threshold';

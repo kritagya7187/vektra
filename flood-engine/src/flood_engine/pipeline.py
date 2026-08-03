@@ -31,6 +31,8 @@ from dataclasses import dataclass
 import geopandas as gpd
 import numpy as np
 from numpy.typing import NDArray
+from rasterio.crs import CRS
+from rasterio.warp import transform_bounds
 
 from flood_engine.core.solver.infiltration import infiltration_grid
 from flood_engine.core.solver.roughness import roughness_grid
@@ -42,6 +44,12 @@ from flood_engine.preprocessing.dem_preprocessing import preprocess_dem
 from flood_engine.preprocessing.landcover_preprocessing import preprocess_landcover
 
 logger = get_logger(LogSubsystem.SIMULATION, "pipeline")
+
+_DISPLAY_CRS_EPSG_CODE = 4326
+"""WGS84 -- for the map-display AOI bounding box only (Step 20). Distinct from
+``core.grid.MODEL_GRID_EPSG_CODE`` (UTM 43N, what the solver actually operates in);
+never used for anything the solver touches.
+"""
 
 
 class PipelineError(Exception):
@@ -71,6 +79,13 @@ class SimulationInputs:
     manning_n: NDArray[np.float64]
     infiltration_loss_mm_per_hr: NDArray[np.float64]
     rainfall_rates_mm_per_hr: NDArray[np.float64]
+    aoi_bounds_wgs84: tuple[float, float, float, float]
+    """``(west, south, east, north)`` in EPSG:4326 -- Step 20 map-display metadata only,
+    not part of ``simulation.controller.run``'s signature and never passed to it. Computed
+    from the reprojected DEM's own ``transform``/``crs``, which this function already has
+    on hand for ``elevation_m`` -- the solver itself remains completely unaware this field
+    exists.
+    """
 
 
 def build_simulation_inputs(
@@ -107,7 +122,9 @@ def build_simulation_inputs(
 
     Returns:
         A :class:`SimulationInputs` ready to pass to
-        :func:`~flood_engine.simulation.controller.run`.
+        :func:`~flood_engine.simulation.controller.run` (its
+        ``aoi_bounds_wgs84`` field is map-display metadata only, computed
+        alongside the rest but never part of that call).
 
     Raises:
         RasterValidationError: propagated unwrapped from DEM/land-cover
@@ -155,12 +172,23 @@ def build_simulation_inputs(
     logger.debug("Pipeline: deriving infiltration grid")
     infiltration = infiltration_grid(landcover_on_model_grid.data, building_mask=building_mask)
 
+    logger.debug("Pipeline: computing AOI display bounds")
+    aoi_bounds_wgs84 = transform_bounds(
+        dem_on_model_grid.crs,
+        CRS.from_epsg(_DISPLAY_CRS_EPSG_CODE),
+        dem_on_model_grid.bounds.left,
+        dem_on_model_grid.bounds.bottom,
+        dem_on_model_grid.bounds.right,
+        dem_on_model_grid.bounds.top,
+    )
+
     logger.info(
         "Pipeline: static inputs ready",
         extra={
             "height": dem_on_model_grid.height,
             "width": dem_on_model_grid.width,
             "building_cell_count": int(np.count_nonzero(building_mask)),
+            "aoi_bounds_wgs84": aoi_bounds_wgs84,
         },
     )
 
@@ -170,6 +198,7 @@ def build_simulation_inputs(
         manning_n=manning_n,
         infiltration_loss_mm_per_hr=infiltration,
         rainfall_rates_mm_per_hr=rainfall.rainfall_mm_per_hr,
+        aoi_bounds_wgs84=aoi_bounds_wgs84,
     )
 
 

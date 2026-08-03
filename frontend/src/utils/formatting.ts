@@ -1,4 +1,4 @@
-/** Pure display-formatting helpers — no API/Cesium/DOM dependency. */
+/** Pure display-formatting helpers — no API/MapLibre/deck.gl/DOM dependency. */
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
@@ -26,6 +26,7 @@ const RUN_STATUS_LABELS: Record<string, string> = {
   running: 'Running',
   completed: 'Completed',
   failed: 'Failed',
+  cancelled: 'Cancelled',
 };
 
 export function formatRunStatus(status: string): string {

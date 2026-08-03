@@ -153,6 +153,41 @@ class TestSubmitSimulation:
         assert job.run_id == run_id
         assert job.solver_parameters == SolverParameters(alpha=0.7)
 
+    def test_aoi_bounds_wgs84_is_stored_and_echoed_back_in_status(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        paths = _stage_arrays(tmp_path, "aoi-bounds")
+
+        response = client.post(
+            "/api/v1/simulations",
+            json={
+                "scenario_id": "scenario-1",
+                **paths,
+                "aoi_bounds_wgs84": [72.80, 18.90, 72.90, 19.00],
+            },
+        )
+
+        assert response.status_code == 202
+        run_id = response.json()["run_id"]
+
+        status_response = client.get(f"/api/v1/simulations/{run_id}")
+        assert status_response.status_code == 200
+        assert status_response.json()["aoi_bounds_wgs84"] == [72.80, 18.90, 72.90, 19.00]
+
+    def test_aoi_bounds_wgs84_is_null_in_status_when_omitted(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        paths = _stage_arrays(tmp_path, "no-aoi-bounds")
+
+        response = client.post("/api/v1/simulations", json={"scenario_id": "scenario-1", **paths})
+
+        assert response.status_code == 202
+        run_id = response.json()["run_id"]
+
+        status_response = client.get(f"/api/v1/simulations/{run_id}")
+        assert status_response.status_code == 200
+        assert status_response.json()["aoi_bounds_wgs84"] is None
+
 
 class TestGetSimulationStatus:
     def test_returns_404_for_unknown_run(self, client: TestClient) -> None:

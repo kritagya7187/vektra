@@ -1,32 +1,54 @@
-import * as Cesium from 'cesium';
-import type { BuildingLayer } from './buildingLayer';
+import type { Map as MaplibreMap } from 'maplibre-gl';
+import type { AoiBoundsWgs84 } from '../api';
+import { geometryBounds } from '../domain/geometryBounds';
+import type { TwinBuilding } from '../domain/twinBuildings';
 
 /**
- * Design review §16: no bounding box is hardcoded (EDD Section 4 leaves
- * the study area "Not specified"). The camera frames whatever data is
- * actually loaded — fit-to-data, not a fixed South Mumbai coordinate.
- * When there is no data at all (the honest empty state, §5A), the
- * camera is left at Cesium's own default view rather than flown
- * anywhere invented.
- *
- * `offset` is a real Viewer.flyTo option (HeadingPitchRange, confirmed
- * against the installed Cesium types) — it frames the SAME fit-to-data
- * bounding sphere from a fixed oblique angle instead of Cesium's own
- * default (near-top-down) fit, matching an isometric/oblique-aerial
- * camera. Still not a hardcoded coordinate — only the ANGLE is fixed,
- * the target remains whatever real data is loaded. `range` is left
- * undefined so Cesium still auto-fits the distance to the real data's
- * extent.
+ * Step 20 §8: reset / zoom-to-AOI / rotate / pitch / free navigation.
+ * Rotate, pitch, and free navigation are native MapLibre drag/touch/
+ * scroll gestures plus the NavigationControl added in scene/mapViewer.ts
+ * — nothing to implement here. No hardcoded coordinate: fit-to-data,
+ * carrying forward the same rule the original design review applied to
+ * the retired Cesium camera.ts ("the camera frames whatever data is
+ * actually loaded").
  */
-const OBLIQUE_HEADING = Cesium.Math.toRadians(-30);
-const OBLIQUE_PITCH = Cesium.Math.toRadians(-45);
 
-export function flyToBuildings(viewer: Cesium.Viewer, buildingLayer: BuildingLayer): void {
-  if (!buildingLayer.hasBuildings()) {
+const FLY_DURATION_MS = 1500;
+const FIT_PADDING_PX = 60;
+const OBLIQUE_PITCH_DEGREES = 45;
+const OBLIQUE_BEARING_DEGREES = -30;
+
+export function flyToBuildings(map: MaplibreMap, twinBuildings: readonly TwinBuilding[]): void {
+  const bounds = geometryBounds(twinBuildings.map((twinBuilding) => twinBuilding.geometry));
+  if (!bounds) {
     return;
   }
-  void viewer.flyTo([...buildingLayer.allEntities()], {
-    duration: 1.5,
-    offset: new Cesium.HeadingPitchRange(OBLIQUE_HEADING, OBLIQUE_PITCH),
-  });
+  map.fitBounds(
+    [
+      [bounds.west, bounds.south],
+      [bounds.east, bounds.north],
+    ],
+    {
+      duration: FLY_DURATION_MS,
+      padding: FIT_PADDING_PX,
+      pitch: OBLIQUE_PITCH_DEGREES,
+      bearing: OBLIQUE_BEARING_DEGREES,
+    },
+  );
+}
+
+export function flyToAoi(map: MaplibreMap, aoiBoundsWgs84: AoiBoundsWgs84): void {
+  const [west, south, east, north] = aoiBoundsWgs84;
+  map.fitBounds(
+    [
+      [west, south],
+      [east, north],
+    ],
+    { duration: FLY_DURATION_MS, padding: FIT_PADDING_PX },
+  );
+}
+
+/** Camera reset (§8): back to a top-down, north-up view at the current position — never a hardcoded location. */
+export function resetCamera(map: MaplibreMap): void {
+  map.easeTo({ pitch: 0, bearing: 0, duration: FLY_DURATION_MS });
 }

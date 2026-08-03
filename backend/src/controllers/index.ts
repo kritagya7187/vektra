@@ -21,3 +21,10 @@ export {
   exportSimulationRuns,
 } from './SimulationRunController';
 export type { SimulationRunExportQuery } from './SimulationRunController';
+export {
+  cancelFloodSimulation,
+  downloadFloodSimulationArtifact,
+  getFloodSimulationStatus,
+  getFloodSimulationSummary,
+  submitFloodSimulation,
+} from './FloodSimulationController';

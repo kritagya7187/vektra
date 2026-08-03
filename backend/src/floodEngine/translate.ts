@@ -64,6 +64,7 @@ export function toSubmitSimulationRequestWire(
     rainfall_rates_path: request.rainfallRatesPath,
     solver_parameters: toSolverParametersWire(request.solverParameters),
     timestepping_parameters: toTimesteppingParametersWire(request.timesteppingParameters),
+    aoi_bounds_wgs84: request.aoiBoundsWgs84,
   };
 }
 
@@ -85,6 +86,7 @@ export function fromSimulationRunStatusWire(wire: SimulationRunStatusWire): Simu
     completedAt: wire.completed_at,
     cancelledAt: wire.cancelled_at,
     errorMessage: wire.error_message,
+    aoiBoundsWgs84: wire.aoi_bounds_wgs84,
   };
 }
 

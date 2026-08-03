@@ -29,6 +29,7 @@ export function renderTopBar(
     const nav = h(
       'nav',
       { class: 'topbar__actions', 'aria-label': 'Panels' },
+      h('button', { type: 'button', onClick: () => onOpenPanel('layerControl') }, 'Layers'),
       h('button', { type: 'button', onClick: () => onOpenPanel('export') }, 'Export'),
     );
 

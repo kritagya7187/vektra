@@ -106,6 +106,10 @@ class SubmitSimulationRequest(BaseModel):
     rainfall_rates_path: str
     solver_parameters: SolverParametersOverride | None = None
     timestepping_parameters: TimesteppingParametersOverride | None = None
+    aoi_bounds_wgs84: tuple[float, float, float, float] | None = None
+    """``(west, south, east, north)`` in EPSG:4326 -- Step 20 map-display metadata only.
+    Never read by the solver or any computation; stored and echoed back verbatim.
+    """
 
 
 class SubmitSimulationResponse(BaseModel):
@@ -137,10 +141,22 @@ class SimulationRunStatusResponse(BaseModel):
     completed_at: datetime | None
     cancelled_at: datetime | None
     error_message: str | None
+    aoi_bounds_wgs84: tuple[float, float, float, float] | None = None
+    """``(west, south, east, north)`` in EPSG:4326, or ``None`` if this run was
+    submitted without one (Step 20 map-display metadata only).
+    """
 
     @classmethod
     def from_domain(cls, row: SimulationRunRow) -> SimulationRunStatusResponse:
         """Build a schema instance from the domain row -- no computation, only translation."""
+        aoi_bounds_wgs84 = (
+            (row.aoi_west, row.aoi_south, row.aoi_east, row.aoi_north)
+            if row.aoi_west is not None
+            and row.aoi_south is not None
+            and row.aoi_east is not None
+            and row.aoi_north is not None
+            else None
+        )
         return cls(
             run_id=row.id,
             scenario_id=row.scenario_id,
@@ -150,6 +166,7 @@ class SimulationRunStatusResponse(BaseModel):
             completed_at=row.completed_at,
             cancelled_at=row.cancelled_at,
             error_message=row.error_message,
+            aoi_bounds_wgs84=aoi_bounds_wgs84,
         )
 
 

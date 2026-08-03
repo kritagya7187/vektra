@@ -685,6 +685,33 @@ class TestReadRun:
         assert row.started_at is None
         assert row.completed_at is None
         assert row.error_message is None
+        assert row.aoi_west is None
+        assert row.aoi_south is None
+        assert row.aoi_east is None
+        assert row.aoi_north is None
+
+    def test_aoi_bounds_round_trip_through_enqueue_and_read_run(
+        self, repository: PostgresJobRepository, pool: ConnectionPool, tmp_path: Path
+    ) -> None:
+        paths = _stage_scenario_arrays(tmp_path, "job1")
+        run_id = repository.enqueue(
+            scenario_id="scenario-1",
+            elevation_path=paths["elevation"],
+            building_mask_path=paths["building_mask"],
+            manning_n_path=paths["manning_n"],
+            infiltration_loss_path=paths["infiltration_loss"],
+            rainfall_rates_path=paths["rainfall_rates"],
+            aoi_bounds_wgs84=(72.80, 18.90, 72.90, 19.00),
+        )
+
+        with pool.connection() as conn:
+            row = read_run(conn, run_id)
+
+        assert row is not None
+        assert row.aoi_west == pytest.approx(72.80)
+        assert row.aoi_south == pytest.approx(18.90)
+        assert row.aoi_east == pytest.approx(72.90)
+        assert row.aoi_north == pytest.approx(19.00)
 
     def test_reflects_status_after_claim_and_completion(
         self, repository: PostgresJobRepository, pool: ConnectionPool, tmp_path: Path

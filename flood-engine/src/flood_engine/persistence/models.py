@@ -51,6 +51,11 @@ class SimulationRunRow:
         error_message: Populated on ``failed`` (covers both execution
             exceptions and timeout-driven abandonment).
         updated_at: Bumped on every transition.
+        aoi_west, aoi_south, aoi_east, aoi_north: The run's AOI bounding
+            box in EPSG:4326, for map display only (Step 20) -- ``None``
+            for runs that did not supply one (e.g. synthetic test
+            arrays with no real geography). Never read by any
+            computation in this codebase.
     """
 
     id: RunId
@@ -71,6 +76,10 @@ class SimulationRunRow:
     cancelled_at: datetime | None
     error_message: str | None
     updated_at: datetime
+    aoi_west: float | None
+    aoi_south: float | None
+    aoi_east: float | None
+    aoi_north: float | None
 
 
 @dataclass(frozen=True, slots=True)

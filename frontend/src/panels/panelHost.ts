@@ -1,6 +1,8 @@
 import { closePanel, uiStore, type PanelId } from '../state';
 import { renderExportActions } from './exportActions';
+import { renderFloodInspectionPanel } from './floodInspectionPanel';
 import { renderInspectionPanel } from './inspectionPanel';
+import { renderLayerControlPanel } from './layerControlPanel';
 import type { PanelController } from './types';
 
 /**
@@ -44,5 +46,9 @@ function mount(panel: PanelId, overlayRoot: HTMLElement): PanelController {
       return renderInspectionPanel(overlayRoot, closePanel);
     case 'export':
       return renderExportActions(overlayRoot, closePanel);
+    case 'layerControl':
+      return renderLayerControlPanel(overlayRoot, closePanel);
+    case 'floodInspection':
+      return renderFloodInspectionPanel(overlayRoot, closePanel);
   }
 }

@@ -30,6 +30,10 @@ class TestSimulationRunRow:
             cancelled_at=None,
             error_message=None,
             updated_at=now,
+            aoi_west=None,
+            aoi_south=None,
+            aoi_east=None,
+            aoi_north=None,
         )
 
         assert row.id == "run-1"
@@ -57,6 +61,10 @@ class TestSimulationRunRow:
             cancelled_at=None,
             error_message=None,
             updated_at=now,
+            aoi_west=None,
+            aoi_south=None,
+            aoi_east=None,
+            aoi_north=None,
         )
 
         with pytest.raises(AttributeError):

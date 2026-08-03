@@ -16,3 +16,10 @@ export {
   simulationRunsCsvExportUrl,
 } from './simulationRuns';
 export { getDataProvenanceRecord, getDataSource } from './dataProvenance';
+export {
+  submitFloodSimulation,
+  getFloodSimulationStatus,
+  getFloodSimulationSummary,
+  floodSimulationDownloadUrl,
+  cancelFloodSimulation,
+} from './floodSimulations';

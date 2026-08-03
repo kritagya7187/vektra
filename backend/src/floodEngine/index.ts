@@ -8,6 +8,7 @@ export {
 } from './translate';
 export { translateFloodEngineHttpError, translateFloodEngineNetworkError } from './errors';
 export type {
+  AoiBoundsWgs84,
   DownloadedArtifact,
   FloodOutputSummary,
   MassLedger,

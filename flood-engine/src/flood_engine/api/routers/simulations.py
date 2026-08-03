@@ -89,6 +89,7 @@ def submit_simulation(
             timestepping_parameters=request.timestepping_parameters.to_domain()
             if request.timestepping_parameters
             else None,
+            aoi_bounds_wgs84=request.aoi_bounds_wgs84,
         )
     except (PersistenceError, psycopg.Error) as exc:
         logger.exception("Failed to enqueue simulation")

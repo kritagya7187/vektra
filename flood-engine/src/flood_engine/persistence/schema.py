@@ -70,8 +70,36 @@ CREATE TABLE IF NOT EXISTS flood_simulation_run (
     completed_at                    TIMESTAMPTZ,
     cancelled_at                    TIMESTAMPTZ,
     error_message                   TEXT,
-    updated_at                      TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at                      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    aoi_west                        DOUBLE PRECISION,
+    aoi_south                       DOUBLE PRECISION,
+    aoi_east                        DOUBLE PRECISION,
+    aoi_north                       DOUBLE PRECISION
 );
+"""
+"""``aoi_*`` (Step 20): the run's AOI bounding box in EPSG:4326 (west,
+south, east, north), for map display only -- never read by the solver,
+timestepping, or any numeric computation anywhere in this codebase. All
+four nullable: most existing runs use tiny synthetic test arrays with no
+real geography, and this is purely additive metadata, not a scientific
+parameter (see ``pipeline.build_simulation_inputs`` for where it's
+computed, from georeferencing that already exists in ``RasterDataset``
+but was previously dropped before reaching ``SimulationInputs``).
+"""
+
+_ALTER_FLOOD_SIMULATION_RUN_ADD_AOI_COLUMNS = """
+ALTER TABLE flood_simulation_run
+    ADD COLUMN IF NOT EXISTS aoi_west DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS aoi_south DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS aoi_east DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS aoi_north DOUBLE PRECISION;
+"""
+"""Forward-migrates any table created before Step 20 by an earlier
+``CREATE TABLE IF NOT EXISTS`` call (which is a no-op against an
+already-existing table, so the new columns above would never appear on
+their own) -- safe/idempotent to run against a table that already has
+them, matching this module's existing convention of tolerating repeated
+``ensure_schema()`` calls.
 """
 
 CREATE_FLOOD_SIMULATION_RUN_STATUS_INDEX = """
@@ -96,6 +124,7 @@ CREATE TABLE IF NOT EXISTS flood_simulation_output (
 
 _STATEMENTS = (
     CREATE_FLOOD_SIMULATION_RUN,
+    _ALTER_FLOOD_SIMULATION_RUN_ADD_AOI_COLUMNS,
     CREATE_FLOOD_SIMULATION_RUN_STATUS_INDEX,
     CREATE_FLOOD_SIMULATION_OUTPUT,
 )

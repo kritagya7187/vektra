@@ -157,6 +157,7 @@ class PostgresJobRepository:
         rainfall_rates_path: str,
         solver_parameters: SolverParameters | None = None,
         timestepping_parameters: TimesteppingParameters | None = None,
+        aoi_bounds_wgs84: tuple[float, float, float, float] | None = None,
     ) -> RunId:
         """Insert a new ``pending`` run. Not part of the frozen JobRepository Protocol.
 
@@ -180,6 +181,10 @@ class PostgresJobRepository:
                 :func:`~flood_engine.simulation.controller.run`.
             timestepping_parameters: Optional override, same meaning as
                 in :func:`~flood_engine.simulation.controller.run`.
+            aoi_bounds_wgs84: Optional ``(west, south, east, north)`` in
+                EPSG:4326, for map display only (Step 20). Never read by
+                any computation -- pure metadata, stored and echoed back
+                verbatim.
 
         Returns:
             The newly-created run's id.
@@ -192,6 +197,9 @@ class PostgresJobRepository:
         timestepping_json = (
             json.dumps(asdict(timestepping_parameters)) if timestepping_parameters else None
         )
+        aoi_west, aoi_south, aoi_east, aoi_north = (
+            aoi_bounds_wgs84 if aoi_bounds_wgs84 is not None else (None, None, None, None)
+        )
         try:
             with self._pool.connection() as conn, conn.transaction():
                 conn.execute(
@@ -199,8 +207,9 @@ class PostgresJobRepository:
                     INSERT INTO flood_simulation_run
                         (id, scenario_id, status, elevation_path, building_mask_path,
                          manning_n_path, infiltration_loss_path, rainfall_rates_path,
-                         solver_parameters_json, timestepping_parameters_json)
-                    VALUES (%s, %s, 'pending', %s, %s, %s, %s, %s, %s, %s)
+                         solver_parameters_json, timestepping_parameters_json,
+                         aoi_west, aoi_south, aoi_east, aoi_north)
+                    VALUES (%s, %s, 'pending', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         run_id,
@@ -212,6 +221,10 @@ class PostgresJobRepository:
                         rainfall_rates_path,
                         solver_json,
                         timestepping_json,
+                        aoi_west,
+                        aoi_south,
+                        aoi_east,
+                        aoi_north,
                     ),
                 )
         except psycopg.Error as exc:
@@ -493,7 +506,7 @@ def read_run(conn: psycopg.Connection, run_id: RunId) -> SimulationRunRow | None
                manning_n_path, infiltration_loss_path, rainfall_rates_path,
                solver_parameters_json, timestepping_parameters_json, worker_id,
                attempt_count, created_at, started_at, completed_at, cancelled_at,
-               error_message, updated_at
+               error_message, updated_at, aoi_west, aoi_south, aoi_east, aoi_north
         FROM flood_simulation_run
         WHERE id = %s
         """,
@@ -520,6 +533,10 @@ def read_run(conn: psycopg.Connection, run_id: RunId) -> SimulationRunRow | None
         cancelled_at=row[15],
         error_message=row[16],
         updated_at=row[17],
+        aoi_west=row[18],
+        aoi_south=row[19],
+        aoi_east=row[20],
+        aoi_north=row[21],
     )
 
 

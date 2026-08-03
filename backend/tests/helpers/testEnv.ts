@@ -1,4 +1,5 @@
 import { testDbInfo } from './testDbInfo';
+import { FLOOD_ENGINE_TEST_BASE_URL } from './floodEngineServer';
 
 /**
  * Runs before any test file's imports resolve (Vitest setupFiles
@@ -23,3 +24,12 @@ process.env.POSTGRES_PASSWORD = testDbInfo.loginPassword;
 process.env.LOG_LEVEL = 'fatal';
 process.env.RATE_LIMIT_ENABLED = 'false';
 process.env.CORS_ALLOWED_ORIGINS = 'http://test.local';
+// Step 20 Part 0b: fixed to the same port tests/helpers/floodEngineServer.ts
+// always spawns its real server on -- so config.floodEngine.baseUrl (read
+// once, here, before any test file's imports resolve, same constraint as
+// POSTGRES_* above) already points at the right place by the time a real
+// server actually gets started in a given test file's own beforeAll. Inert
+// for every test file that never calls getFloodEngineClient().
+process.env.FLOOD_ENGINE_BASE_URL = FLOOD_ENGINE_TEST_BASE_URL;
+process.env.FLOOD_ENGINE_TIMEOUT_MS = '10000';
+process.env.FLOOD_ENGINE_MAX_RETRIES = '1';
