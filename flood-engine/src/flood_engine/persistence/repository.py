@@ -53,9 +53,10 @@ from psycopg_pool import ConnectionPool
 from flood_engine.config import DatabaseConfig, StorageConfig
 from flood_engine.core.solver.wca2d import SolverParameters
 from flood_engine.core.timestepping import TimesteppingParameters
-from flood_engine.jobs.models import ClaimedJob, RunId
+from flood_engine.jobs.models import ClaimedJob, JobStatus, RunId
 from flood_engine.logging_config import LogSubsystem, get_logger
 from flood_engine.output.generator import FloodOutputSummary
+from flood_engine.persistence.models import SimulationOutputRow, SimulationRunRow
 from flood_engine.persistence.serialization import (
     read_array,
     read_output_summary,
@@ -470,9 +471,105 @@ def read_completed_output(
     )
 
 
+def read_run(conn: psycopg.Connection, run_id: RunId) -> SimulationRunRow | None:
+    """Read one run's full status row, unmaterialized (no array loading).
+
+    Not part of the frozen JobRepository Protocol (the worker only ever
+    claims/mutates rows, never queries one by id for its own sake) -- the
+    same class of read path :func:`read_completed_output` already
+    documents as "a future API/output-retrieval layer... will need",
+    added here for Step 19's job-status endpoint specifically.
+
+    Args:
+        conn: An open connection.
+        run_id: The run to look up.
+
+    Returns:
+        The row as-persisted, or ``None`` if no run exists with this id.
+    """
+    row = conn.execute(
+        """
+        SELECT id, scenario_id, status, elevation_path, building_mask_path,
+               manning_n_path, infiltration_loss_path, rainfall_rates_path,
+               solver_parameters_json, timestepping_parameters_json, worker_id,
+               attempt_count, created_at, started_at, completed_at, cancelled_at,
+               error_message, updated_at
+        FROM flood_simulation_run
+        WHERE id = %s
+        """,
+        (run_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return SimulationRunRow(
+        id=str(row[0]),
+        scenario_id=row[1],
+        status=JobStatus(row[2]),
+        elevation_path=row[3],
+        building_mask_path=row[4],
+        manning_n_path=row[5],
+        infiltration_loss_path=row[6],
+        rainfall_rates_path=row[7],
+        solver_parameters_json=row[8],
+        timestepping_parameters_json=row[9],
+        worker_id=row[10],
+        attempt_count=row[11],
+        created_at=row[12],
+        started_at=row[13],
+        completed_at=row[14],
+        cancelled_at=row[15],
+        error_message=row[16],
+        updated_at=row[17],
+    )
+
+
+def read_output_locations(conn: psycopg.Connection, run_id: RunId) -> SimulationOutputRow | None:
+    """Read one completed run's output *file locations* only, without loading the arrays.
+
+    Distinct from :func:`read_completed_output`: a file-download endpoint
+    (Step 19) needs the raw ``.npy`` path to stream, not the materialized
+    :class:`~flood_engine.output.generator.FloodOutputSummary` array
+    contents -- loading the full arrays just to discard them in favor of
+    the path that produced them would be wasted work for that specific
+    caller.
+
+    Args:
+        conn: An open connection.
+        run_id: The completed run to look up.
+
+    Returns:
+        The row as-persisted, or ``None`` if no output row exists for
+        this run.
+    """
+    row = conn.execute(
+        """
+        SELECT run_id, max_depth_location, arrival_time_location,
+               duration_above_threshold_location, mass_ledger_json,
+               step_count, simulated_duration_s, created_at
+        FROM flood_simulation_output
+        WHERE run_id = %s
+        """,
+        (run_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return SimulationOutputRow(
+        run_id=str(row[0]),
+        max_depth_location=row[1],
+        arrival_time_location=row[2],
+        duration_above_threshold_location=row[3],
+        mass_ledger_json=row[4],
+        step_count=row[5],
+        simulated_duration_s=row[6],
+        created_at=row[7],
+    )
+
+
 __all__ = [
     "IllegalTransitionError",
     "PersistenceError",
     "PostgresJobRepository",
     "read_completed_output",
+    "read_output_locations",
+    "read_run",
 ]

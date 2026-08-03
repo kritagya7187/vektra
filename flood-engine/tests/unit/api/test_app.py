@@ -1,10 +1,11 @@
 """Unit tests for flood_engine.api.app.
 
-No production route exists yet (Step 15 registers none -- see the module
-docstring), so each test attaches a temporary, test-only route to a fresh
-``create_app()`` instance to exercise one exception handler in isolation,
-then discards it -- this never touches the real ``app`` singleton other
-modules import.
+The exception-handler tests below attach a temporary, test-only route to
+a fresh ``create_app()`` instance to exercise one handler in isolation,
+then discard it -- this never touches the real ``app`` singleton other
+modules import, and does not depend on the Step 19 production routes
+(covered separately, against a real database, in
+``tests/integration/test_api_simulations_router.py``).
 
 Uses plain ``caplog`` for the logging assertions: unlike an earlier version
 of ``flood_engine.api.app``, ``create_app()`` no longer calls
@@ -97,13 +98,25 @@ class TestUnhandledExceptionHandler:
 
 
 class TestCreateApp:
-    def test_registers_no_application_routes(self) -> None:
+    def test_registers_the_step_19_simulations_routes(self) -> None:
+        # Step 15 registered zero routes (its own frozen scope); Step 19
+        # registers exactly the job-lifecycle routes -- verified via the
+        # OpenAPI schema rather than app.routes directly, since
+        # include_router() wraps a sub-router as an opaque
+        # _IncludedRouter with no .path attribute of its own in this
+        # FastAPI version (an internal representation detail, not part
+        # of any frozen contract this test should depend on).
         test_app = create_app()
 
-        # Only FastAPI's own built-in docs/openapi routes exist -- no
-        # application route has been registered, per Step 15's own scope.
-        paths = {route.path for route in test_app.routes}
-        assert paths <= {"/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}
+        paths = set(test_app.openapi()["paths"].keys())
+
+        assert paths == {
+            "/api/v1/simulations",
+            "/api/v1/simulations/{run_id}",
+            "/api/v1/simulations/{run_id}/summary",
+            "/api/v1/simulations/{run_id}/download/{artifact}",
+            "/api/v1/simulations/{run_id}/cancel",
+        }
 
     def test_two_instances_do_not_share_route_state(self) -> None:
         app_a = create_app()
@@ -113,6 +126,6 @@ class TestCreateApp:
             return {"ok": "true"}
 
         app_b = create_app()
-        paths_b = {route.path for route in app_b.routes}
+        paths_b = set(app_b.openapi()["paths"].keys())
 
         assert "/__only_on_a__" not in paths_b

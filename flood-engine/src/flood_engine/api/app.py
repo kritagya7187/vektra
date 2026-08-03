@@ -1,12 +1,12 @@
-"""api.app: the FastAPI application shell (Step 15).
+"""api.app: the FastAPI application shell (Step 15) and route registration (Step 19).
 
-**Scope, deliberately narrow**: constructs the FastAPI ``app`` instance and
-its exception-handling infrastructure only. No routes are registered --
-every SDS Section 8 endpoint needs persistence (Step 17) or the async job
-queue the SDS's own text says that contract requires (Step 16), neither of
-which exists yet (see ``flood_engine.api``'s module docstring for the
-per-endpoint breakdown). This module is the shell those routers will
-eventually attach to.
+Step 15 built the shell and its exception-handling infrastructure with
+zero routes -- every endpoint needed persistence (Step 17) or the async
+job queue (Step 16), neither of which existed yet. Both now exist; Step
+19's own architecture verification confirmed this was the one remaining
+blocker for real Node-backend integration, and resolved it by building
+the job-lifecycle routes in ``api.routers.simulations`` (see that
+module's own docstring, and ``VALIDATION.md``, for the full resolution).
 
 **Exception handlers cover exactly the exceptions
 :func:`~flood_engine.simulation.controller.run` can raise** (its own
@@ -43,6 +43,7 @@ so nothing here needs it configured to function correctly.
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from flood_engine.api.routers.simulations import router as simulations_router
 from flood_engine.config import APIConfig
 from flood_engine.core.solver.wca2d import WCA2DError
 from flood_engine.core.timestepping import TimesteppingError
@@ -53,15 +54,17 @@ logger = get_logger(LogSubsystem.API, "app")
 
 
 def create_app() -> FastAPI:
-    """Build a fresh FastAPI application with exception handling configured.
+    """Build a fresh FastAPI application with routes and exception handling configured.
 
     A factory, not a bare module-level singleton, so tests can construct
-    independent app instances (e.g. to attach a temporary route while
-    exercising an exception handler) without sharing state across tests.
-    :data:`app` below is the one real callers use.
+    independent app instances (e.g. to override ``get_repository`` with a
+    fake, or to attach a temporary route while exercising an exception
+    handler) without sharing state across tests. :data:`app` below is the
+    one real callers use.
 
     Returns:
-        A configured :class:`fastapi.FastAPI` instance with zero routes.
+        A configured :class:`fastapi.FastAPI` instance with the Step 19
+        job-lifecycle routes registered.
     """
     api_config = APIConfig()
 
@@ -70,10 +73,12 @@ def create_app() -> FastAPI:
         version="0.1.0",
         description=(
             "Internal HTTP service exposing the VEKTRA Stage 1 WCA2D flood "
-            "simulation engine. No endpoints are registered yet -- see "
-            "flood_engine.api's module docstring."
+            "simulation engine's job-submission/status/summary/download/cancel "
+            "lifecycle -- called by the Node backend (Step 19), never directly "
+            "by a browser."
         ),
     )
+    fastapi_app.include_router(simulations_router)
     logger.info(
         "FastAPI application created",
         extra={"host": api_config.host, "port": api_config.port},

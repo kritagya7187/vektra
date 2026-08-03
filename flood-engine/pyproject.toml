@@ -32,6 +32,15 @@ dev = [
     "httpx>=0.27,<1",
     "ruff>=0.6,<1",
     "mypy>=1.11,<2",
+    # Step 19, Part G: real cross-process integration testing needs the
+    # FastAPI app actually served over a real TCP socket -- FastAPI's own
+    # in-process TestClient (used by every Python-side API test) has no
+    # such requirement, but the Node backend's real HTTP client does.
+    # Dev-only: no production deployment/entrypoint for the API service
+    # exists yet (out of scope for Step 19, a Node-integration step, not
+    # a deployment step) -- this exists to make real testing possible,
+    # not to ship a server.
+    "uvicorn>=0.30,<1",
 ]
 
 [tool.hatch.build.targets.wheel]

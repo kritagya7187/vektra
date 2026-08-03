@@ -77,6 +77,12 @@ export interface AppConfig {
   readonly rasterStorage: {
     readonly dir: string | undefined;
   };
+  readonly floodEngine: {
+    readonly baseUrl: string | undefined;
+    readonly timeoutMs: number;
+    readonly maxRetries: number;
+    readonly maxPayloadBytes: number;
+  };
 }
 
 function buildRateLimitConfig(): RateLimitConfig {
@@ -138,5 +144,11 @@ export const config: AppConfig = Object.freeze({
   }),
   rasterStorage: Object.freeze({
     dir: env.RASTER_STORAGE_DIR,
+  }),
+  floodEngine: Object.freeze({
+    baseUrl: env.FLOOD_ENGINE_BASE_URL,
+    timeoutMs: env.FLOOD_ENGINE_TIMEOUT_MS,
+    maxRetries: env.FLOOD_ENGINE_MAX_RETRIES,
+    maxPayloadBytes: env.FLOOD_ENGINE_MAX_PAYLOAD_BYTES,
   }),
 });

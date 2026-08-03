@@ -59,6 +59,17 @@ const DEFAULT_OPEN_METEO_API_URL = 'https://archive-api.open-meteo.com/v1/archiv
 const DEFAULT_REMOTE_SENSING_TIMEOUT_MS = 60_000;
 const DEFAULT_REMOTE_SENSING_MAX_RETRIES = 3;
 
+// Step 19 flood-engine client. A simulation run itself takes minutes to
+// hours (the async job queue, not this timeout, is what accommodates
+// that) -- this bounds one individual HTTP call (submit/status/summary/
+// download/cancel), all of which are fast, synchronous operations
+// against Postgres on the flood-engine side, matching
+// DEFAULT_REMOTE_SENSING_TIMEOUT_MS's own order of magnitude for "an
+// external HTTP call this backend depends on."
+const DEFAULT_FLOOD_ENGINE_TIMEOUT_MS = 30_000;
+const DEFAULT_FLOOD_ENGINE_MAX_RETRIES = 3;
+const DEFAULT_FLOOD_ENGINE_MAX_PAYLOAD_BYTES = 65_536;
+
 function csvToOrigins(value: string | undefined): string[] {
   if (!value) {
     return [];
@@ -159,6 +170,41 @@ export const envSchema = z
     // directory to assume; the operator must say where, the same way
     // POSTGRES_HOST has no default. Only required by raster ingestion.
     RASTER_STORAGE_DIR: z.string().min(1).optional(),
+
+    // Step 19: Node -> Python flood-engine FastAPI service integration.
+    // No default for the base URL, deliberately — unlike OVERPASS_API_URL
+    // (a real, fixed, public third-party endpoint), the flood-engine
+    // service has no established deployment address yet (it is not yet
+    // wired into docker-compose.yml); inventing a plausible-looking
+    // default here would be exactly the "hard-coded URL" Step 19's own
+    // Part B forbids, just hidden behind a fallback instead of a literal.
+    // Required whenever the flood-engine client is actually constructed
+    // (see floodEngine/config.ts), not required for the server to start
+    // at all otherwise -- the same "optional here, required at point of
+    // use" pattern as COPERNICUS_CLIENT_ID/RASTER_STORAGE_DIR above.
+    FLOOD_ENGINE_BASE_URL: z.string().url().optional(),
+    FLOOD_ENGINE_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(DEFAULT_FLOOD_ENGINE_TIMEOUT_MS),
+    FLOOD_ENGINE_MAX_RETRIES: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .default(DEFAULT_FLOOD_ENGINE_MAX_RETRIES),
+    // Caps the request body Node will send when submitting a job (the
+    // five array-path strings plus optional parameter overrides -- a
+    // small JSON document, never the arrays themselves, see
+    // floodEngine/types.ts's own docstring for why). Guards against a
+    // pathological/malformed request growing unbounded before it ever
+    // reaches the network, independent of whatever limit the flood-engine
+    // service itself enforces server-side.
+    FLOOD_ENGINE_MAX_PAYLOAD_BYTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(DEFAULT_FLOOD_ENGINE_MAX_PAYLOAD_BYTES),
   })
   .superRefine((env, ctx) => {
     // Enforced here rather than via .default(): a fallback threshold would

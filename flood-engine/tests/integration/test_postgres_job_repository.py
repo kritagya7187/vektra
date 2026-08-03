@@ -36,6 +36,7 @@ from pydantic import SecretStr
 from flood_engine.config import DatabaseConfig, SimulationExecutionConfig, StorageConfig
 from flood_engine.core.solver.wca2d import SolverParameters
 from flood_engine.core.state import MassLedger
+from flood_engine.jobs.models import JobStatus
 from flood_engine.jobs.worker import run_worker
 from flood_engine.output.generator import FloodOutputSummary
 from flood_engine.persistence.repository import (
@@ -43,6 +44,8 @@ from flood_engine.persistence.repository import (
     PersistenceError,
     PostgresJobRepository,
     read_completed_output,
+    read_output_locations,
+    read_run,
 )
 from flood_engine.persistence.schema import ensure_schema
 
@@ -649,3 +652,156 @@ class TestReadCompletedOutput:
             result = read_completed_output(conn, run_id)
 
         assert result is None
+
+
+class TestReadRun:
+    def test_returns_none_when_no_run_exists(self, pool: ConnectionPool) -> None:
+        with pool.connection() as conn:
+            result = read_run(conn, "00000000-0000-0000-0000-000000000000")
+
+        assert result is None
+
+    def test_returns_the_pending_row_immediately_after_enqueue(
+        self, repository: PostgresJobRepository, pool: ConnectionPool, tmp_path: Path
+    ) -> None:
+        paths = _stage_scenario_arrays(tmp_path, "job1")
+        run_id = repository.enqueue(
+            scenario_id="scenario-1",
+            elevation_path=paths["elevation"],
+            building_mask_path=paths["building_mask"],
+            manning_n_path=paths["manning_n"],
+            infiltration_loss_path=paths["infiltration_loss"],
+            rainfall_rates_path=paths["rainfall_rates"],
+        )
+
+        with pool.connection() as conn:
+            row = read_run(conn, run_id)
+
+        assert row is not None
+        assert row.id == run_id
+        assert row.scenario_id == "scenario-1"
+        assert row.status is JobStatus.PENDING
+        assert row.elevation_path == paths["elevation"]
+        assert row.started_at is None
+        assert row.completed_at is None
+        assert row.error_message is None
+
+    def test_reflects_status_after_claim_and_completion(
+        self, repository: PostgresJobRepository, pool: ConnectionPool, tmp_path: Path
+    ) -> None:
+        paths = _stage_scenario_arrays(tmp_path, "job1")
+        run_id = repository.enqueue(
+            scenario_id="scenario-1",
+            elevation_path=paths["elevation"],
+            building_mask_path=paths["building_mask"],
+            manning_n_path=paths["manning_n"],
+            infiltration_loss_path=paths["infiltration_loss"],
+            rainfall_rates_path=paths["rainfall_rates"],
+        )
+        job = repository.claim_next_pending(max_concurrent_runs=1)
+        assert job is not None
+
+        with pool.connection() as conn:
+            running_row = read_run(conn, run_id)
+        assert running_row is not None
+        assert running_row.status is JobStatus.RUNNING
+        assert running_row.started_at is not None
+
+        summary = FloodOutputSummary(
+            max_depth_m=np.zeros((2, 2)),
+            arrival_time_min=np.full((2, 2), np.nan),
+            duration_above_threshold_min=np.zeros((2, 2)),
+            mass_ledger=MassLedger(
+                rainfall_input_m3=1.0, infiltration_loss_m3=0.0, boundary_outflow_m3=0.0
+            ),
+            step_count=1,
+            simulated_duration_s=60.0,
+        )
+        repository.mark_completed(run_id, summary)
+
+        with pool.connection() as conn:
+            completed_row = read_run(conn, run_id)
+        assert completed_row is not None
+        assert completed_row.status is JobStatus.COMPLETED
+        assert completed_row.completed_at is not None
+
+    def test_reflects_failure_with_error_message(
+        self, repository: PostgresJobRepository, pool: ConnectionPool, tmp_path: Path
+    ) -> None:
+        paths = _stage_scenario_arrays(tmp_path, "job1")
+        run_id = repository.enqueue(
+            scenario_id="scenario-1",
+            elevation_path=paths["elevation"],
+            building_mask_path=paths["building_mask"],
+            manning_n_path=paths["manning_n"],
+            infiltration_loss_path=paths["infiltration_loss"],
+            rainfall_rates_path=paths["rainfall_rates"],
+        )
+        job = repository.claim_next_pending(max_concurrent_runs=1)
+        assert job is not None
+
+        repository.mark_failed(run_id, error_message="simulated failure")
+
+        with pool.connection() as conn:
+            row = read_run(conn, run_id)
+        assert row is not None
+        assert row.status is JobStatus.FAILED
+        assert row.error_message == "simulated failure"
+
+
+class TestReadOutputLocations:
+    def test_returns_none_when_no_output_row_exists(
+        self, repository: PostgresJobRepository, pool: ConnectionPool, tmp_path: Path
+    ) -> None:
+        paths = _stage_scenario_arrays(tmp_path, "job1")
+        run_id = repository.enqueue(
+            scenario_id="scenario-1",
+            elevation_path=paths["elevation"],
+            building_mask_path=paths["building_mask"],
+            manning_n_path=paths["manning_n"],
+            infiltration_loss_path=paths["infiltration_loss"],
+            rainfall_rates_path=paths["rainfall_rates"],
+        )
+
+        with pool.connection() as conn:
+            result = read_output_locations(conn, run_id)
+
+        assert result is None
+
+    def test_returns_the_real_file_paths_without_loading_the_arrays(
+        self, repository: PostgresJobRepository, pool: ConnectionPool, tmp_path: Path
+    ) -> None:
+        paths = _stage_scenario_arrays(tmp_path, "job1")
+        run_id = repository.enqueue(
+            scenario_id="scenario-1",
+            elevation_path=paths["elevation"],
+            building_mask_path=paths["building_mask"],
+            manning_n_path=paths["manning_n"],
+            infiltration_loss_path=paths["infiltration_loss"],
+            rainfall_rates_path=paths["rainfall_rates"],
+        )
+        job = repository.claim_next_pending(max_concurrent_runs=1)
+        assert job is not None
+        summary = FloodOutputSummary(
+            max_depth_m=np.array([[1.0, 2.0], [3.0, 4.0]]),
+            arrival_time_min=np.full((2, 2), np.nan),
+            duration_above_threshold_min=np.zeros((2, 2)),
+            mass_ledger=MassLedger(
+                rainfall_input_m3=1.0, infiltration_loss_m3=0.0, boundary_outflow_m3=0.0
+            ),
+            step_count=1,
+            simulated_duration_s=60.0,
+        )
+        repository.mark_completed(run_id, summary)
+
+        with pool.connection() as conn:
+            row = read_output_locations(conn, run_id)
+
+        assert row is not None
+        assert row.run_id == run_id
+        assert row.step_count == 1
+        assert row.simulated_duration_s == 60.0
+        # A real, existing file path -- not a placeholder or a materialized array.
+        assert Path(row.max_depth_location).exists()
+        assert Path(row.arrival_time_location).exists()
+        assert Path(row.duration_above_threshold_location).exists()
