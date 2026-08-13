@@ -19,7 +19,8 @@ beforeEach(() => {
     maxDepth: true,
     arrivalTime: false,
     duration: false,
-  });
+   adminBoundary: false,
+});
 });
 afterEach(() => {
   pauseTimeline();

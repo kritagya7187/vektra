@@ -232,7 +232,8 @@ export interface CityRunDetailWire {
   readonly run_status: Record<string, unknown> | null;
 }
 
-export type CityRunArtifact = 'max-depth-geotiff' | 'arrival-time-geotiff' | 'duration-above-threshold-geotiff';
+export type CityRunArtifact =
+  'max-depth-geotiff' | 'arrival-time-geotiff' | 'duration-above-threshold-geotiff';
 
 /** A real GeoJSON document, passed through verbatim -- its own field names are the GeoJSON spec, never renamed. */
 export type CityRunBoundary = Record<string, unknown>;

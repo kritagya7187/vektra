@@ -186,7 +186,11 @@ export function createFloodEngineClient(options: FloodEngineClientOptions): Floo
     },
 
     async listCityRuns(): Promise<readonly CityRunSummary[]> {
-      const response = await floodEngineFetch(url('/api/v1/city-runs'), { method: 'GET' }, httpOptions);
+      const response = await floodEngineFetch(
+        url('/api/v1/city-runs'),
+        { method: 'GET' },
+        httpOptions,
+      );
       const wire = parseJsonBody<readonly CityRunSummaryWire[]>(response.body, 'city run list');
       return wire.map(fromCityRunSummaryWire);
     },
