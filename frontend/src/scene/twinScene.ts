@@ -14,7 +14,10 @@ import { createFloodLayers } from './floodLayer';
 import { createFloodWaterLayer } from './floodWaterLayer';
 import { createMap, setImageryVisible, setTerrainVisible } from './mapViewer';
 import { createMeasurementLayers } from './measurementLayer';
-import { createPhotorealisticTilesLayer } from './photorealisticTilesLayer';
+import {
+  createPhotorealisticTilesLayer,
+  requestPhotorealisticTilesClasses,
+} from './photorealisticTilesLayer';
 import { resolveMapClick, type MapClickResult } from './selection';
 const BUILDING_EXTRUSION_MIN_ZOOM = 14;
 const WATER_REFINEMENT_ZOOM_THRESHOLDS: readonly (readonly [number, number])[] = [
@@ -72,6 +75,7 @@ export class TwinScene {
       console.error(event.error);
     });
     this.map.on('zoom', (): void => this.handleZoomChange());
+    requestPhotorealisticTilesClasses(() => this.rebuildLayers());
   }
   private handleZoomChange(): void {
     const zoom = this.map.getZoom();
