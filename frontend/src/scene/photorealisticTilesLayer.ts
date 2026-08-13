@@ -19,12 +19,13 @@ function loadClasses(): Promise<PhotorealisticTilesClasses> {
   if (cachedClasses) {
     return Promise.resolve(cachedClasses);
   }
-  loadingPromise ??= Promise.all([import('@deck.gl/geo-layers'), import('@loaders.gl/3d-tiles')]).then(
-    ([geoLayers, tiles3d]) => {
-      cachedClasses = { Tile3DLayer: geoLayers.Tile3DLayer, Tiles3DLoader: tiles3d.Tiles3DLoader };
-      return cachedClasses;
-    },
-  );
+  loadingPromise ??= Promise.all([
+    import('@deck.gl/geo-layers'),
+    import('@loaders.gl/3d-tiles'),
+  ]).then(([geoLayers, tiles3d]) => {
+    cachedClasses = { Tile3DLayer: geoLayers.Tile3DLayer, Tiles3DLoader: tiles3d.Tiles3DLoader };
+    return cachedClasses;
+  });
   return loadingPromise;
 }
 
