@@ -1,28 +1,16 @@
 import { h } from '../utils/dom';
-
-/**
- * Shared chrome for every overlay panel (design review §15
- * accessibility: keyboard operability and screen-reader accessible
- * overlay panels independent of 3D-canvas picking). Each panel is a
- * real, focusable `role="dialog"` region — not a div soup — with a
- * labelled heading, a close control reachable by keyboard, and Escape
- * wired to the same close behavior as the visible close button.
- */
 export interface PanelShellHandle {
   readonly element: HTMLElement;
   readonly body: HTMLElement;
   focus(): void;
 }
-
 export function createPanelShell(options: {
   id: string;
   title: string;
   onClose: () => void;
 }): PanelShellHandle {
   const body = h('div', { class: 'panel__body' });
-
   const heading = h('h2', { class: 'panel__title', id: `${options.id}-title` }, options.title);
-
   const closeButton = h(
     'button',
     {
@@ -33,7 +21,6 @@ export function createPanelShell(options: {
     },
     '✕',
   );
-
   const element = h(
     'section',
     {
@@ -52,7 +39,6 @@ export function createPanelShell(options: {
     h('header', { class: 'panel__header' }, heading, closeButton),
     body,
   );
-
   return {
     element,
     body,

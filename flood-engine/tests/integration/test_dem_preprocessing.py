@@ -46,9 +46,9 @@ def _write_geotiff(
 
 @pytest.fixture
 def wgs84_dem_path(tmp_path: Path) -> Path:
-    """A small, valid DEM in WGS84 -- Copernicus GLO-30's real native CRS."""
+    """A small, valid DEM in WGS84 -- SRTM's real native CRS."""
     path = tmp_path / "dem_wgs84.tif"
-    # A South-Mumbai-scale coordinate origin (real GLO-30 pixel size,
+    # A South-Mumbai-scale coordinate origin (real SRTM pixel size,
     # ~0.0002777... deg = 1 arc-second), uniform elevation for easy
     # value-correctness assertions after reprojection.
     transform = Affine(0.0002777778, 0.0, 72.8, 0.0, -0.0002777778, 19.0)

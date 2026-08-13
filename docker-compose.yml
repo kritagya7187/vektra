@@ -14,7 +14,11 @@
 # Required environment variables (see .env.example): POSTGRES_DB,
 # POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_SUPERUSER_PASSWORD,
 # BACKEND_PORT, LOG_LEVEL, CORS_ALLOWED_ORIGINS, FRONTEND_PORT,
-# VITE_API_BASE_URL, VITE_CESIUM_ION_TOKEN. See this subsystem's review
+# VITE_API_BASE_URL. Optional: VITE_MAP_STYLE_URL, VITE_TERRAIN_TILE_URL,
+# VITE_GOOGLE_3D_TILES_API_KEY, FLOOD_ENGINE_BASE_URL (Step 20 — the
+# flood-engine FastAPI service is still not itself wired into this
+# compose file; point FLOOD_ENGINE_BASE_URL at wherever you're running
+# it, e.g. host.docker.internal if it's on the host). See this subsystem's review
 # for why POSTGRES_USER/PASSWORD (the backend's existing, established
 # meaning: "a login role granted membership in vektra_backend_api, never
 # a superuser") cannot double as the db container's own bootstrap-
@@ -41,9 +45,13 @@ services:
       - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./db/seeds/0001_data_sources.sql:/docker-entrypoint-initdb.d/02-seed-data-sources.sql:ro
       - ./db/docker/03-create-app-role.sh:/docker-entrypoint-initdb.d/03-create-app-role.sh:ro
-    # No ports published to the host — "isolated internal network":
-    # reachable from other containers on vektra_internal only. Use
-    # `docker compose exec db psql ...` for direct local access.
+    # Published on 5433 (not 5432, which may already be bound by an
+    # unrelated local Postgres install) so the native flood-engine
+    # process (Windows-only WCA2D solver dependency chain) can reach
+    # this database directly. Also still reachable from other
+    # containers on vektra_internal via `db:5432`.
+    ports:
+      - "5433:5432"
     networks:
       - vektra_internal
     healthcheck:
@@ -174,7 +182,7 @@ services:
       retries: 3
       start_period: 10s
 
-  frontend: # TypeScript + CesiumJS client — Section 20, 22
+  frontend: # TypeScript + MapLibre GL JS + deck.gl client — Section 20, 22; Step 20
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -185,8 +193,12 @@ services:
         # start). VITE_API_BASE_URL must be a URL the END USER'S BROWSER
         # can reach (the backend's host-published port below), never the
         # `backend` container-DNS name — a browser cannot resolve that.
+        # The other three are optional (frontend/src/config.ts has real
+        # defaults) — blank in .env is fine.
         VITE_API_BASE_URL: ${VITE_API_BASE_URL}
-        VITE_CESIUM_ION_TOKEN: ${VITE_CESIUM_ION_TOKEN}
+        VITE_MAP_STYLE_URL: ${VITE_MAP_STYLE_URL:-}
+        VITE_TERRAIN_TILE_URL: ${VITE_TERRAIN_TILE_URL:-}
+        VITE_GOOGLE_3D_TILES_API_KEY: ${VITE_GOOGLE_3D_TILES_API_KEY:-}
     environment:
       # Runtime only — the port the `serve` process inside the container
       # actually listens on (frontend/Dockerfile's CMD). Unrelated to the

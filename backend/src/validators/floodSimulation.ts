@@ -43,6 +43,16 @@ const aoiBoundsWgs84Schema = z
   .refine(([west, , east]) => west < east, { message: 'west must be less than east' })
   .refine(([, south, , north]) => south < north, { message: 'south must be less than north' });
 
+/** GDAL affine 6-tuple (a, b, c, d, e, f) for elevationPath's grid -- map-display/GeoTIFF metadata only. */
+const elevationTransformSchema = z.tuple([
+  z.number(),
+  z.number(),
+  z.number(),
+  z.number(),
+  z.number(),
+  z.number(),
+]);
+
 export const submitFloodSimulationBodySchema = z.object({
   scenarioId: z.string().min(1, 'scenarioId must not be empty'),
   elevationPath: z.string().min(1, 'elevationPath must not be empty'),
@@ -53,6 +63,8 @@ export const submitFloodSimulationBodySchema = z.object({
   solverParameters: solverParametersOverrideSchema.optional(),
   timesteppingParameters: timesteppingParametersOverrideSchema.optional(),
   aoiBoundsWgs84: aoiBoundsWgs84Schema.optional(),
+  elevationTransform: elevationTransformSchema.optional(),
+  elevationCrsEpsg: z.number().int().optional(),
 });
 
 export type SubmitFloodSimulationBody = z.infer<typeof submitFloodSimulationBodySchema>;
@@ -60,7 +72,14 @@ export type SubmitFloodSimulationBody = z.infer<typeof submitFloodSimulationBody
 export const floodSimulationRunIdParamSchema = z.object({ runId: uuidSchema });
 export type FloodSimulationRunIdParam = z.infer<typeof floodSimulationRunIdParamSchema>;
 
-const SIMULATION_ARTIFACTS = ['max-depth', 'arrival-time', 'duration-above-threshold'] as const;
+const SIMULATION_ARTIFACTS = [
+  'max-depth',
+  'arrival-time',
+  'duration-above-threshold',
+  'max-depth-geotiff',
+  'arrival-time-geotiff',
+  'duration-above-threshold-geotiff',
+] as const;
 
 export const floodSimulationArtifactParamSchema = z.object({
   runId: uuidSchema,

@@ -1,17 +1,10 @@
 """api.dependencies: FastAPI dependency injection for the Step 19 job-lifecycle routes.
 
-Builds a real, schema-ready :class:`~flood_engine.persistence.repository.PostgresJobRepository`
-from deployment configuration, the same construction sequence
-``jobs.worker._build_repository()`` already uses (config -> pool ->
-``ensure_schema`` -> repository) -- deliberately reimplemented here
-rather than imported from that module: ``jobs.worker`` is the standalone
-*worker process* entrypoint, a separate OS process from this API service
-(frozen architecture Decision 2, ``jobs/worker.py``'s own docstring);
-importing a private (underscore-prefixed), process-specific helper
-across that boundary would create exactly the kind of implicit coupling
-the frozen one-directional dependency rule is meant to prevent (``api``
-depends on ``persistence``/``config``, never on ``jobs.worker``
-specifically).
+Builds a real :class:`~flood_engine.persistence.repository.PostgresJobRepository`
+from deployment configuration. Schema creation is not performed here --
+``flood_simulation_run``/``flood_simulation_output`` are created once by
+``db/migrations/0016_flood_simulation_tables.sql`` (run as superuser at DB
+init), not by the runtime app role (see that migration's own header).
 
 Cached at module scope (built once, on first request, reused for the
 life of the process) -- opening a new connection pool per request would
@@ -24,7 +17,6 @@ from psycopg_pool import ConnectionPool
 
 from flood_engine.config import DatabaseConfig, load_config
 from flood_engine.persistence.repository import PostgresJobRepository
-from flood_engine.persistence.schema import ensure_schema
 
 
 def _build_conninfo(database_config: DatabaseConfig) -> str:
@@ -61,7 +53,7 @@ def get_repository() -> PostgresJobRepository:
     introducing a global mutable variable or app-startup-event wiring.
 
     Returns:
-        A repository backed by a real, open, schema-ready connection pool.
+        A repository backed by a real, open connection pool.
     """
     config = load_config()
     pool = ConnectionPool(
@@ -70,10 +62,25 @@ def get_repository() -> PostgresJobRepository:
         max_size=config.database.postgres_pool_max_size,
         open=True,
     )
-    with pool.connection() as conn:
-        ensure_schema(conn)
-        conn.commit()
     return PostgresJobRepository(pool, output_storage_dir=config.storage.flood_output_storage_dir)
 
 
-__all__ = ["get_repository"]
+@lru_cache(maxsize=1)
+def get_db_pool() -> ConnectionPool:
+    """Build (once) and return a process-wide raw connection pool.
+
+    For routes that read tables outside the job-queue's own schema (e.g.
+    ``meteorological_observation``) and have no use for
+    :class:`~flood_engine.persistence.repository.PostgresJobRepository`'s
+    job-lifecycle methods.
+    """
+    config = load_config()
+    return ConnectionPool(
+        conninfo=_build_conninfo(config.database),
+        min_size=config.database.postgres_pool_min_size,
+        max_size=config.database.postgres_pool_max_size,
+        open=True,
+    )
+
+
+__all__ = ["get_db_pool", "get_repository"]

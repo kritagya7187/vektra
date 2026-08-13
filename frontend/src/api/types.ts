@@ -1,19 +1,7 @@
 import type { GeoJsonMultiPolygon, GeoJsonPoint, GeoJsonPolygon } from './geometry';
-
-/**
- * DTO shapes mirroring backend/src/models/*.ts and backend/src/types/
- * enums.ts exactly (field names, nullability, closed value sets) —
- * these describe what actually arrives over the wire, not an aspiration.
- * Timestamp fields are `string` (ISO 8601), not `Date`: JSON has no date
- * type, and Express's res.json() serializes every Date via its own
- * toJSON() into an ISO string — parsing to a real Date happens only at
- * the point of display (src/utils/formatting.ts), not in these DTOs.
- */
-
 export type OsmType = 'way' | 'relation';
 export type RunType = 'baseline' | 'scenario';
 export type SimulationRunStatus = 'pending' | 'running' | 'completed' | 'failed';
-
 export interface DataSource {
   readonly sourceCode: string;
   readonly displayName: string;
@@ -21,7 +9,6 @@ export interface DataSource {
   readonly createdAt: string;
   readonly updatedAt: string;
 }
-
 export interface DataProvenanceRecord {
   readonly provenanceId: string;
   readonly sourceCode: string;
@@ -33,7 +20,6 @@ export interface DataProvenanceRecord {
   readonly createdAt: string;
   readonly updatedAt: string;
 }
-
 export interface Building {
   readonly buildingId: string;
   readonly osmId: number;
@@ -49,10 +35,7 @@ export interface Building {
   readonly createdAt: string;
   readonly updatedAt: string;
 }
-
-/** The properties payload of a /buildings/export?format=geojson Feature — Building minus its two geometry fields (they become the Feature's own geometry). */
 export type BuildingGeoJsonProperties = Omit<Building, 'geomWgs84' | 'geomUtm43n'>;
-
 export interface SimulationRun {
   readonly runId: string;
   readonly codeVersion: string;
@@ -66,7 +49,6 @@ export interface SimulationRun {
   readonly createdAt: string;
   readonly updatedAt: string;
 }
-
 export interface EnvironmentalRasterAsset {
   readonly rasterAssetId: string;
   readonly sourceCode: string;
@@ -79,7 +61,6 @@ export interface EnvironmentalRasterAsset {
   readonly createdAt: string;
   readonly updatedAt: string;
 }
-
 export interface MeteorologicalObservation {
   readonly metObservationId: string;
   readonly sourceCode: string;
@@ -92,20 +73,28 @@ export interface MeteorologicalObservation {
   readonly createdAt: string;
   readonly updatedAt: string;
 }
-
-/**
- * Step 20: DTOs mirroring backend/src/floodEngine/types.ts field-for-field
- * (the Node backend's own flood-engine client, Step 19), consumed here
- * through the new /api/flood-simulations proxy routes (Step 20 Part 0b)
- * — a distinct 5-state job-lifecycle system from `SimulationRunStatus`
- * above (the older, unrelated heat-exposure engine's 4-state system),
- * named separately to avoid confusing the two.
- */
 export type FloodSimulationStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-
-/** `[west, south, east, north]` in EPSG:4326 — map-display metadata only, never a scientific parameter. */
 export type AoiBoundsWgs84 = readonly [west: number, south: number, east: number, north: number];
-
+/** GDAL affine 6-tuple (a, b, c, d, e, f) for elevationPath's grid. */
+export type ElevationTransform = readonly [
+  a: number,
+  b: number,
+  c: number,
+  d: number,
+  e: number,
+  f: number,
+];
+/** Optional overrides for the frozen WCA2D numerical parameters; omitted fields use the solver's own defaults. */
+export interface SolverParametersOverride {
+  readonly tolDelwlM?: number;
+  readonly ignoreWdM?: number;
+  readonly alpha?: number;
+  readonly timeMindtS?: number;
+  readonly timeMaxdtS?: number;
+}
+export interface TimesteppingParametersOverride {
+  readonly infiltrationIntervalS?: number;
+}
 export interface SubmitFloodSimulationRequest {
   readonly scenarioId: string;
   readonly elevationPath: string;
@@ -114,13 +103,15 @@ export interface SubmitFloodSimulationRequest {
   readonly infiltrationLossPath: string;
   readonly rainfallRatesPath: string;
   readonly aoiBoundsWgs84?: AoiBoundsWgs84;
+  readonly elevationTransform?: ElevationTransform;
+  readonly elevationCrsEpsg?: number;
+  readonly solverParameters?: SolverParametersOverride;
+  readonly timesteppingParameters?: TimesteppingParametersOverride;
 }
-
 export interface FloodSimulationSubmitResult {
   readonly runId: string;
   readonly status: FloodSimulationStatus;
 }
-
 export interface FloodSimulationRunStatus {
   readonly runId: string;
   readonly scenarioId: string;
@@ -132,14 +123,11 @@ export interface FloodSimulationRunStatus {
   readonly errorMessage: string | null;
   readonly aoiBoundsWgs84: AoiBoundsWgs84 | null;
 }
-
 export interface FloodMassLedger {
   readonly rainfallInputM3: number;
   readonly infiltrationLossM3: number;
   readonly boundaryOutflowM3: number;
 }
-
-/** Step 14's three real per-cell summary rasters, plus run-level metadata — nothing here is recomputed client-side. */
 export interface FloodOutputSummary {
   readonly maxDepthM: readonly (readonly number[])[];
   readonly arrivalTimeMin: readonly (readonly (number | null)[])[];
@@ -148,5 +136,48 @@ export interface FloodOutputSummary {
   readonly stepCount: number;
   readonly simulatedDurationS: number;
 }
-
-export type FloodSimulationArtifact = 'max-depth' | 'arrival-time' | 'duration-above-threshold';
+export interface CityRunSummary {
+  readonly runId: string;
+  readonly createdAt: string | null;
+  readonly status: string;
+  readonly tileCount: number;
+  readonly tilesCompleted: number;
+}
+export interface CityRunDetail {
+  readonly manifest: Record<string, unknown>;
+  readonly runSummary: Record<string, unknown> | null;
+  readonly runStatus: Record<string, unknown> | null;
+}
+export type CityRunArtifact =
+  | 'max-depth-geotiff'
+  | 'arrival-time-geotiff'
+  | 'duration-above-threshold-geotiff';
+export type CityRunBoundary = Record<string, unknown>;
+export interface RainfallDay {
+  readonly date: string;
+  readonly totalMm: number;
+  readonly maxHourlyMm: number;
+}
+export interface RainfallProvenance {
+  readonly sourceProductIdentifier: string;
+  readonly license: string;
+  readonly retrievedAt: string;
+  readonly sourceDisplayName: string;
+}
+export interface RainfallEventList {
+  readonly station: { readonly lon: number; readonly lat: number };
+  readonly provenance: RainfallProvenance | null;
+  readonly days: readonly RainfallDay[];
+}
+export interface PrepareRainfallEventResult {
+  readonly rainfallRatesPath: string;
+  readonly hours: number;
+  readonly totalMm: number;
+}
+export type FloodSimulationArtifact =
+  | 'max-depth'
+  | 'arrival-time'
+  | 'duration-above-threshold'
+  | 'max-depth-geotiff'
+  | 'arrival-time-geotiff'
+  | 'duration-above-threshold-geotiff';

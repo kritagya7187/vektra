@@ -18,15 +18,29 @@ import { rootLogger } from '../logging';
 import { ExternalServiceError } from '../errors';
 import { floodEngineFetch } from './httpClient';
 import {
+  fromCityRunDetailWire,
+  fromCityRunSummaryWire,
   fromFloodOutputSummaryWire,
+  fromPrepareRainfallEventResultWire,
+  fromRainfallEventListWire,
   fromSimulationRunStatusWire,
   fromSubmitSimulationResponseWire,
   toSubmitSimulationRequestWire,
 } from './translate';
 import type {
+  CityRunArtifact,
+  CityRunBoundary,
+  CityRunDetail,
+  CityRunDetailWire,
+  CityRunSummary,
+  CityRunSummaryWire,
   DownloadedArtifact,
   FloodOutputSummary,
   FloodOutputSummaryWire,
+  PrepareRainfallEventResult,
+  PrepareRainfallEventResultWire,
+  RainfallEventList,
+  RainfallEventListWire,
   SimulationArtifact,
   SimulationRunStatus,
   SimulationRunStatusWire,
@@ -52,6 +66,12 @@ export interface FloodEngineClient {
     artifact: SimulationArtifact,
   ): Promise<DownloadedArtifact>;
   cancelSimulation(runId: string): Promise<SimulationRunStatus>;
+  listCityRuns(): Promise<readonly CityRunSummary[]>;
+  getCityRun(runId: string): Promise<CityRunDetail>;
+  downloadCityRunArtifact(runId: string, artifact: CityRunArtifact): Promise<DownloadedArtifact>;
+  getCityRunBoundary(runId: string): Promise<CityRunBoundary>;
+  listRainfallEvents(): Promise<RainfallEventList>;
+  prepareRainfallEvent(eventDate: string): Promise<PrepareRainfallEventResult>;
 }
 
 function parseJsonBody<T>(body: Buffer, context: string): T {
@@ -163,6 +183,72 @@ export function createFloodEngineClient(options: FloodEngineClientOptions): Floo
       );
       const wire = parseJsonBody<SimulationRunStatusWire>(response.body, 'job cancellation');
       return fromSimulationRunStatusWire(wire);
+    },
+
+    async listCityRuns(): Promise<readonly CityRunSummary[]> {
+      const response = await floodEngineFetch(url('/api/v1/city-runs'), { method: 'GET' }, httpOptions);
+      const wire = parseJsonBody<readonly CityRunSummaryWire[]>(response.body, 'city run list');
+      return wire.map(fromCityRunSummaryWire);
+    },
+
+    async getCityRun(runId: string): Promise<CityRunDetail> {
+      const response = await floodEngineFetch(
+        url(`/api/v1/city-runs/${encodeURIComponent(runId)}`),
+        { method: 'GET' },
+        httpOptions,
+      );
+      const wire = parseJsonBody<CityRunDetailWire>(response.body, 'city run detail');
+      return fromCityRunDetailWire(wire);
+    },
+
+    async downloadCityRunArtifact(
+      runId: string,
+      artifact: CityRunArtifact,
+    ): Promise<DownloadedArtifact> {
+      const response = await floodEngineFetch(
+        url(`/api/v1/city-runs/${encodeURIComponent(runId)}/download/${artifact}`),
+        { method: 'GET' },
+        httpOptions,
+      );
+      const contentDisposition = response.headers.get('content-disposition');
+      const filenameMatch = contentDisposition?.match(/filename="?([^"]+)"?/);
+      return {
+        bytes: response.body,
+        contentType: response.headers.get('content-type') ?? 'application/octet-stream',
+        filename: filenameMatch ? filenameMatch[1] : null,
+      };
+    },
+
+    async getCityRunBoundary(runId: string): Promise<CityRunBoundary> {
+      const response = await floodEngineFetch(
+        url(`/api/v1/city-runs/${encodeURIComponent(runId)}/boundary`),
+        { method: 'GET' },
+        httpOptions,
+      );
+      return parseJsonBody<CityRunBoundary>(response.body, 'city run boundary');
+    },
+
+    async listRainfallEvents(): Promise<RainfallEventList> {
+      const response = await floodEngineFetch(
+        url('/api/v1/rainfall-events'),
+        { method: 'GET' },
+        httpOptions,
+      );
+      const wire = parseJsonBody<RainfallEventListWire>(response.body, 'rainfall event list');
+      return fromRainfallEventListWire(wire);
+    },
+
+    async prepareRainfallEvent(eventDate: string): Promise<PrepareRainfallEventResult> {
+      const response = await floodEngineFetch(
+        url(`/api/v1/rainfall-events/${encodeURIComponent(eventDate)}/prepare`),
+        { method: 'POST' },
+        httpOptions,
+      );
+      const wire = parseJsonBody<PrepareRainfallEventResultWire>(
+        response.body,
+        'rainfall event prepare',
+      );
+      return fromPrepareRainfallEventResultWire(wire);
     },
   };
 }

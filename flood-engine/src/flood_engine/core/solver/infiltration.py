@@ -48,6 +48,8 @@ from flood_engine.core.solver.roughness import (
     BUILT_UP,
     CROPLAND,
     GRASSLAND,
+    HERBACEOUS_WETLAND,
+    MANGROVES,
     PERMANENT_WATER_BODIES,
     SHRUBLAND,
     TREE_COVER,
@@ -76,12 +78,20 @@ INFILTRATION_RATE_BY_LANDCOVER_CLASS: Final[dict[int, float]] = {
     BARE_SPARSE_VEGETATION: PERVIOUS_HSG_D_INFILTRATION_RATE_MM_PER_HR,
     BUILT_UP: IMPERVIOUS_INFILTRATION_RATE_MM_PER_HR,
     PERMANENT_WATER_BODIES: IMPERVIOUS_INFILTRATION_RATE_MM_PER_HR,
+    # Found missing by running against the real Mumbai extract -- see
+    # core.solver.roughness's own table for why mangroves/wetland are
+    # really present here. Both are tidally/seasonally saturated
+    # substrate, hydrologically closer to standing water than to
+    # draining soil, so both get the impervious rate rather than the
+    # pervious HSG-D rate.
+    MANGROVES: IMPERVIOUS_INFILTRATION_RATE_MM_PER_HR,
+    HERBACEOUS_WETLAND: IMPERVIOUS_INFILTRATION_RATE_MM_PER_HR,
 }
 """Same class-code coverage as ``core.solver.roughness.MANNING_N_BY_LANDCOVER_CLASS``
-(snow/ice, herbaceous wetland, mangroves, moss/lichen absent for the same
-reason: not physically plausible for the Mumbai AOI, not addressed by the
-frozen NMS). :func:`infiltration_grid` raises on any other class code
-rather than silently defaulting."""
+(snow/ice, moss/lichen absent for the same reason: not physically
+plausible for the Mumbai AOI, not addressed by the frozen NMS).
+:func:`infiltration_grid` raises on any other class code rather than
+silently defaulting."""
 
 BUILDING_INFILTRATION_RATE_MM_PER_HR: Final[float] = IMPERVIOUS_INFILTRATION_RATE_MM_PER_HR
 """A building footprint's own surface is impervious regardless of its

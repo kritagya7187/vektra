@@ -15,3 +15,7 @@ infrastructure module. Everything that touches a file, socket, or database
 lives in the outer layers. This mirrors the NMS's own separation between the
 model *class* (durable) and its Stage 1 *implementation* (swappable).
 """
+
+from flood_engine.io.proj_env import ensure_compatible_proj_data
+
+ensure_compatible_proj_data()

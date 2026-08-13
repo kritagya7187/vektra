@@ -1,4 +1,4 @@
-"""DEM preprocessing: prepares the Copernicus GLO-30 DEM for the model grid.
+"""DEM preprocessing: prepares the SRTM DEM for the model grid.
 
 Implements exactly the NMS's frozen "Grid" section requirement to
 reproject the DEM to UTM Zone 43N (``flood_engine.core.grid.MODEL_GRID_EPSG_CODE``)

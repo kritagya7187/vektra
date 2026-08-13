@@ -44,7 +44,6 @@ from flood_engine.logging_config import (
 )
 from flood_engine.output.generator import generate_summary
 from flood_engine.persistence.repository import PostgresJobRepository
-from flood_engine.persistence.schema import ensure_schema
 from flood_engine.simulation.controller import SimulationControllerError
 from flood_engine.simulation.controller import run as run_simulation_controller
 
@@ -99,7 +98,12 @@ def execute_job(job: ClaimedJob, repository: JobRepository) -> None:
             repository.mark_failed(job.run_id, error_message=str(exc))
             return
 
-        repository.mark_completed(job.run_id, summary)
+        repository.mark_completed(
+            job.run_id,
+            summary,
+            elevation_transform=job.elevation_transform,
+            elevation_crs_epsg=job.elevation_crs_epsg,
+        )
         logger.info(SimulationLifecycleEvent.COMPLETED.value, extra={"run_id": job.run_id})
 
 
@@ -271,20 +275,11 @@ def _build_conninfo(database_config: DatabaseConfig) -> str:
 def _build_repository() -> PostgresJobRepository:
     """Construct the concrete persistence implementation for standalone execution.
 
-    Step 17 (``flood_engine.persistence``) now provides a concrete
-    :class:`~flood_engine.persistence.repository.PostgresJobRepository`
-    satisfying :class:`~flood_engine.jobs.repository.JobRepository`
-    structurally. Loads deployment configuration the same way
-    :func:`~flood_engine.config.load_config` documents, opens the
-    connection pool directly (rather than via ``from_config``, so this
-    function can also run :func:`~flood_engine.persistence.schema.ensure_schema`
-    on the same pool before constructing the repository) so a fresh
-    database is usable without a separate manual migration step --
-    matching how every existing integration test already establishes
-    schema before using the repository.
+    Schema creation is not performed here -- see
+    ``db/migrations/0016_flood_simulation_tables.sql``.
 
     Returns:
-        A repository backed by a real, open, schema-ready connection pool.
+        A repository backed by a real, open connection pool.
     """
     config = load_config()
     pool = ConnectionPool(
@@ -293,9 +288,6 @@ def _build_repository() -> PostgresJobRepository:
         max_size=config.database.postgres_pool_max_size,
         open=True,
     )
-    with pool.connection() as conn:
-        ensure_schema(conn)
-        conn.commit()
     return PostgresJobRepository(pool, output_storage_dir=config.storage.flood_output_storage_dir)
 
 

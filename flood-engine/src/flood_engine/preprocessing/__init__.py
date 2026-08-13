@@ -1,6 +1,6 @@
 """Turns raw loaded sources (``flood_engine.io``) into model-ready ``flood_engine.inputs``.
 
-- ``dem_preprocessing``        -> reprojects/aligns the Copernicus GLO-30 DEM to
+- ``dem_preprocessing``        -> reprojects/aligns the SRTM DEM to
   the model grid (NMS "Grid": UTM 43N, 30m, AOI-checked against DEM-derived
   flow direction per the NMS's explicit warning against reusing the
   heat-exposure AOI verbatim).

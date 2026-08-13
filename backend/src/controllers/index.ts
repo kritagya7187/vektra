@@ -28,3 +28,10 @@ export {
   getFloodSimulationSummary,
   submitFloodSimulation,
 } from './FloodSimulationController';
+export {
+  downloadCityRunArtifact,
+  getCityRun,
+  getCityRunBoundary,
+  listCityRuns,
+} from './CityRunController';
+export { listRainfallEvents, prepareRainfallEvent } from './RainfallEventController';

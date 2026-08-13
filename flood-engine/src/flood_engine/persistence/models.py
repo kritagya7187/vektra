@@ -56,6 +56,11 @@ class SimulationRunRow:
             for runs that did not supply one (e.g. synthetic test
             arrays with no real geography). Never read by any
             computation in this codebase.
+        elevation_transform_json: Optional JSON-encoded affine transform
+            (GDAL 6-tuple) for ``elevation_path``'s grid. ``None`` when
+            the run has no known georeferencing.
+        elevation_crs_epsg: Optional EPSG code matching
+            ``elevation_transform_json``.
     """
 
     id: RunId
@@ -80,6 +85,8 @@ class SimulationRunRow:
     aoi_south: float | None
     aoi_east: float | None
     aoi_north: float | None
+    elevation_transform_json: str | None
+    elevation_crs_epsg: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +108,12 @@ class SimulationOutputRow:
         step_count, simulated_duration_s: Plain scalars, mirroring
             :class:`~flood_engine.output.generator.FloodOutputSummary`
             exactly.
+        max_depth_geotiff_path, arrival_time_geotiff_path,
+            duration_geotiff_path: Real georeferenced GeoTIFF outputs
+            (see `flood_engine.output.geotiff`), written only when the
+            run's job carried elevation georeferencing. ``None`` when it
+            did not -- an honest "not georeferenced" signal, not a
+            fabricated CRS.
         created_at: When this output was persisted.
     """
 
@@ -111,6 +124,9 @@ class SimulationOutputRow:
     mass_ledger_json: str
     step_count: int
     simulated_duration_s: float
+    max_depth_geotiff_path: str | None
+    arrival_time_geotiff_path: str | None
+    duration_geotiff_path: str | None
     created_at: datetime
 
 

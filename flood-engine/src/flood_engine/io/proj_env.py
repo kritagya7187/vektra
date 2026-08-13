@@ -46,13 +46,13 @@ logger = logging.getLogger(__name__)
 def ensure_compatible_proj_data() -> None:
     """Point ``PROJ_DATA`` at rasterio's own bundled PROJ database, for this process only.
 
-    Must be called once, as early as possible in any process that will
-    use rasterio/pyproj/geopandas -- and, critically, *before rasterio has
+    Must run once, as early as possible in any process that will use
+    rasterio/pyproj/geopandas -- and, critically, *before rasterio has
     been imported by anything else in the process* (see the module
-    docstring's correctness note). ``tests/conftest.py`` calls this at
-    collection time, before any test module can import rasterio; the real
-    service entrypoint (Step 15) must call it as the very first line of
-    its startup, before any other import.
+    docstring's correctness note). Called automatically by
+    ``flood_engine/__init__.py`` (the first line any import of this
+    package executes) and by ``tests/conftest.py`` at collection time,
+    before pytest itself imports rasterio.
 
     A no-op (with a warning) if rasterio's package cannot be located, or
     its bundled ``proj_data`` directory is missing -- e.g. rasterio is not

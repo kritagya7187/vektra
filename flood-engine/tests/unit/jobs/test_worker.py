@@ -19,6 +19,7 @@ established for exactly this reason.
 
 import signal
 import threading
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import numpy as np
@@ -54,6 +55,9 @@ class _FakeJobRepository:
         self._started_at: dict[RunId, datetime] = {}
         self._claimed_job_data: dict[RunId, ClaimedJob] = {}
         self.summaries: dict[RunId, FloodOutputSummary] = {}
+        self.geo_kwargs: dict[
+            RunId, tuple[tuple[float, float, float, float, float, float] | None, int | None]
+        ] = {}
         self.error_messages: dict[RunId, str] = {}
         self.claim_calls = 0
         self._stop_when_idle = stop_when_idle
@@ -91,12 +95,20 @@ class _FakeJobRepository:
             self._stop_when_idle.set()
         return None
 
-    def mark_completed(self, run_id: RunId, summary: FloodOutputSummary) -> None:
+    def mark_completed(
+        self,
+        run_id: RunId,
+        summary: FloodOutputSummary,
+        *,
+        elevation_transform: tuple[float, float, float, float, float, float] | None = None,
+        elevation_crs_epsg: int | None = None,
+    ) -> None:
         if self.fail_mark_completed:
             raise RuntimeError("simulated persistence failure")
         assert self._status[run_id] is JobStatus.RUNNING, "illegal transition: not running"
         self._status[run_id] = JobStatus.COMPLETED
         self.summaries[run_id] = summary
+        self.geo_kwargs[run_id] = (elevation_transform, elevation_crs_epsg)
 
     def mark_failed(self, run_id: RunId, *, error_message: str) -> None:
         assert self._status[run_id] is JobStatus.RUNNING, "illegal transition: not running"
@@ -141,6 +153,21 @@ class TestExecuteJob:
 
         assert repository.status_of(job.run_id) is JobStatus.COMPLETED
         assert job.run_id in repository.summaries
+
+    def test_forwards_elevation_georeferencing_to_mark_completed(self) -> None:
+        repository = _FakeJobRepository()
+        job = _claimed_job()
+        job = replace(
+            job, elevation_transform=(30.0, 0.0, 100.0, 0.0, -30.0, 200.0), elevation_crs_epsg=32643
+        )
+        repository.seed_running(job, started_at=datetime.now(UTC))
+
+        execute_job(job, repository)
+
+        assert repository.geo_kwargs[job.run_id] == (
+            (30.0, 0.0, 100.0, 0.0, -30.0, 200.0),
+            32643,
+        )
 
     def test_marks_failed_on_wca2d_error(self) -> None:
         repository = _FakeJobRepository()

@@ -1,22 +1,11 @@
 import { ApiError, fetchAllBuildingsGeoJson, getBuilding, type Building } from '../api';
 import { toTwinBuildings, type TwinBuilding } from '../domain/twinBuildings';
 import { AsyncStatus, Store } from './store';
-
-/**
- * Building state: the twin dataset that drives the scene, plus the
- * currently-selected building's detail. Provenance detail is
- * intentionally NOT part of this store — it is a leaf, on-demand lookup
- * the Provenance Inspector panel owns locally (still only ever calling
- * the API layer, never bypassing it); centering every fetch in one store
- * would force unrelated panels to re-render on a fetch only one of them
- * cares about.
- */
 export interface SelectionDetail {
   readonly status: AsyncStatus;
   readonly building: Building | null;
   readonly error: ApiError | null;
 }
-
 export interface BuildingState {
   readonly twinStatus: AsyncStatus;
   readonly twinBuildings: readonly TwinBuilding[];
@@ -24,13 +13,11 @@ export interface BuildingState {
   readonly selectedBuildingId: string | null;
   readonly selection: SelectionDetail;
 }
-
 const initialSelection: SelectionDetail = {
   status: 'idle',
   building: null,
   error: null,
 };
-
 const initialState: BuildingState = {
   twinStatus: 'idle',
   twinBuildings: [],
@@ -38,16 +25,12 @@ const initialState: BuildingState = {
   selectedBuildingId: null,
   selection: initialSelection,
 };
-
 export const buildingStore = new Store<BuildingState>(initialState);
-
 function toApiError(err: unknown, fallbackMessage: string): ApiError {
   return err instanceof ApiError
     ? err
     : new ApiError({ code: 'UNKNOWN_ERROR', message: fallbackMessage, status: null, cause: err });
 }
-
-/** Fetches every ingested building's geometry and splits it into the scene-renderable twin shape. */
 export async function loadTwinBuildings(): Promise<void> {
   buildingStore.set((previous) => ({ ...previous, twinStatus: 'loading', twinError: null }));
   try {
@@ -70,14 +53,12 @@ export async function loadTwinBuildings(): Promise<void> {
     throw apiError;
   }
 }
-
 export async function selectBuilding(buildingId: string): Promise<void> {
   buildingStore.set((previous) => ({
     ...previous,
     selectedBuildingId: buildingId,
     selection: { ...initialSelection, status: 'loading' },
   }));
-
   try {
     const building = await getBuilding(buildingId);
     buildingStore.set((previous) => ({
@@ -92,7 +73,6 @@ export async function selectBuilding(buildingId: string): Promise<void> {
     }));
   }
 }
-
 export function clearSelection(): void {
   buildingStore.set((previous) => ({
     ...previous,

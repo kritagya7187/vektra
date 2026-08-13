@@ -59,10 +59,26 @@ class JobRepository(Protocol):
         """
         ...  # pragma: no cover
 
-    def mark_completed(self, run_id: RunId, summary: FloodOutputSummary) -> None:
+    def mark_completed(
+        self,
+        run_id: RunId,
+        summary: FloodOutputSummary,
+        *,
+        elevation_transform: tuple[float, float, float, float, float, float] | None = None,
+        elevation_crs_epsg: int | None = None,
+    ) -> None:
         """Transition a ``running`` job to ``completed``, recording its output summary.
 
         Precondition: ``run_id`` currently has status ``running``.
+
+        Args:
+            run_id: The job to complete.
+            summary: The computed output summary.
+            elevation_transform: When supplied together with
+                ``elevation_crs_epsg``, the implementation should also
+                write real georeferenced GeoTIFF outputs. ``None`` means
+                the run had no known georeferencing.
+            elevation_crs_epsg: EPSG code matching ``elevation_transform``.
         """
         ...  # pragma: no cover
 

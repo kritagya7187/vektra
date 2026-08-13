@@ -46,13 +46,14 @@ Both were found during this step's own architecture audit and treated as minimal
 
 Five states, copied — never re-derived — from the backend's own `FloodSimulationStatus`: `pending → running → { completed | failed | cancelled }`. `state/floodRunState.ts` polls `GET /api/flood-simulations/:runId` every 2s until terminal, then fetches the summary once on `completed`.
 
-**"Submit" is a labeled demo action, not a real scenario picker** (explicit project-owner decision, this step): no `flood_scenario`/AOI-definition system exists anywhere in this project (frozen out of scope). The "Run Demo Flood Simulation" button (`domain/demoScenario.ts`) submits a fixed, clearly-labeled request referencing `.npy` array paths under `/vektra-demo-data/` that **must be staged manually** before the demo produces a completed run:
+**"Submit" is a labeled demo action, not a real scenario picker** (explicit project-owner decision, this step): no `flood_scenario`/AOI-definition system exists anywhere in this project (frozen out of scope). The "Run Demo Flood Simulation" button (`domain/demoScenario.ts`) submits a fixed, clearly-labeled request referencing `.npy` array paths under `demo-data/` (relative to the flood-engine worker's own cwd), generated from a real windowed subset of actual Mumbai SRTM DEM, ESA WorldCover, and OSM building data (not synthetic fixtures):
 
 ```
-python backend/tests/helpers/stageFloodEngineArrays.py /vektra-demo-data
+cd flood-engine
+python -m flood_engine.cli.prepare_demo_scenario --dem <path> --landcover <path>
 ```
 
-on the flood-engine host's filesystem. If unstaged, the job still submits (202 pending) and then genuinely fails when the worker can't load the files — an honest, observable outcome, not a broken demo.
+`demo-data/provenance.json` records the exact source rasters, window, and real building count used. If `demo-data/` is missing, the job still submits (202 pending) and then genuinely fails when the worker can't load the files — an honest, observable outcome, not a broken demo.
 
 ## Layers (§1–§3)
 
@@ -103,6 +104,6 @@ Full unit coverage (vitest, `environment: 'node'`, matching the existing convent
 - **Building selection has no visual feedback on the map anymore.** The retired Cesium scene highlighted the selected building's outline; a fully-invisible pick layer and an opaque, streamed Google Photorealistic 3D Tiles mesh cannot be selectively recolored per building. `state/buildingState.ts`/`panels/inspectionPanel.ts` still work exactly as before — only the map's own visual cue is gone. `TwinScene.setSelectedBuilding()` is kept as a documented no-op to preserve the class's public interface.
 - **Google Photorealistic 3D Tiles auth is unverified end-to-end** — no real Google API key was available in this development environment. The `?key=` query-string pattern matches Google's own documented Map Tiles API usage but has not been visually confirmed against a live tileset.
 - **The raster row-order convention (row 0 = north) is not visually confirmed against a real rendered map** — verified only by unit test against the documented convention, not by eye against real non-uniform depth data (no live browser here).
-- **The demo submission button requires manually staged array files** (`/vektra-demo-data/`) — intentionally not automated; see Job lifecycle above.
+- **The demo submission button requires `flood-engine/demo-data/` to have been generated once** via `python -m flood_engine.cli.prepare_demo_scenario` — not regenerated automatically on every submit; see Job lifecycle above.
 - **Bundle size** (466 KB gzipped) is unoptimized — code-splitting was out of scope for this step.
 - **Pre-existing, unrelated**: `npm audit` reports a moderate `esbuild`/`vite` dev-server advisory that predates this step (fixing it means an out-of-scope `vite@8` major upgrade) — not acted on.

@@ -76,6 +76,14 @@ class ClaimedJob:
             :func:`~flood_engine.simulation.controller.run`.
         timestepping_parameters: Optional override, same meaning as in
             :func:`~flood_engine.simulation.controller.run`.
+        elevation_transform: Optional affine transform (GDAL 6-tuple:
+            ``a, b, c, d, e, f``) for ``elevation_m``'s grid. When
+            supplied together with ``elevation_crs_epsg``, the worker
+            writes real georeferenced GeoTIFF outputs alongside the
+            ``.npy`` arrays. ``None`` for scenarios with no known
+            georeferencing (e.g. synthetic test arrays).
+        elevation_crs_epsg: Optional EPSG code matching
+            ``elevation_transform``.
     """
 
     run_id: RunId
@@ -86,6 +94,8 @@ class ClaimedJob:
     rainfall_rates_mm_per_hr: NDArray[np.float64]
     solver_parameters: SolverParameters | None = None
     timestepping_parameters: TimesteppingParameters | None = None
+    elevation_transform: tuple[float, float, float, float, float, float] | None = None
+    elevation_crs_epsg: int | None = None
 
 
 __all__ = ["ClaimedJob", "JobStatus", "RunId"]

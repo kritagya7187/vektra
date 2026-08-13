@@ -3,7 +3,7 @@
 Every module in this package implements one frozen section of the Numerical
 Model Specification (NMS) and nothing else:
 
-- ``grid``            -> NMS "Grid" (30m Copernicus GLO-30 cells, UTM 43N, AOI)
+- ``grid``            -> NMS "Grid" (30m SRTM-resolution cells, UTM 43N, AOI)
 - ``state``            -> NMS "State variable" and SDS Section 3 (State(t))
 - ``solver.wca2d``      -> NMS "Cell update rule"
 - ``solver.roughness``  -> NMS "Roughness - Manning's n per land-cover class"

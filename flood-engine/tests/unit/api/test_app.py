@@ -116,6 +116,12 @@ class TestCreateApp:
             "/api/v1/simulations/{run_id}/summary",
             "/api/v1/simulations/{run_id}/download/{artifact}",
             "/api/v1/simulations/{run_id}/cancel",
+            "/api/v1/city-runs",
+            "/api/v1/city-runs/{run_id}",
+            "/api/v1/city-runs/{run_id}/boundary",
+            "/api/v1/city-runs/{run_id}/download/{artifact}",
+            "/api/v1/rainfall-events",
+            "/api/v1/rainfall-events/{event_date}/prepare",
         }
 
     def test_two_instances_do_not_share_route_state(self) -> None:

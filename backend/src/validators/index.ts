@@ -27,6 +27,10 @@ export type {
   FloodSimulationRunIdParam,
   SubmitFloodSimulationBody,
 } from './floodSimulation';
+export { cityRunIdParamSchema, cityRunArtifactParamSchema } from './cityRuns';
+export type { CityRunIdParam, CityRunArtifactParam } from './cityRuns';
+export { rainfallEventDateParamSchema } from './rainfallEvents';
+export type { RainfallEventDateParam } from './rainfallEvents';
 export { zodErrorToIssues } from './zodErrorToIssues';
 export type { ValidationSection } from './zodErrorToIssues';
 export type { ValidatedRequest } from './types';

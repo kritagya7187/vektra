@@ -74,7 +74,9 @@ CREATE TABLE IF NOT EXISTS flood_simulation_run (
     aoi_west                        DOUBLE PRECISION,
     aoi_south                       DOUBLE PRECISION,
     aoi_east                        DOUBLE PRECISION,
-    aoi_north                       DOUBLE PRECISION
+    aoi_north                       DOUBLE PRECISION,
+    elevation_transform_json        TEXT,
+    elevation_crs_epsg              INTEGER
 );
 """
 """``aoi_*`` (Step 20): the run's AOI bounding box in EPSG:4326 (west,
@@ -102,6 +104,15 @@ them, matching this module's existing convention of tolerating repeated
 ``ensure_schema()`` calls.
 """
 
+_ALTER_FLOOD_SIMULATION_RUN_ADD_ELEVATION_GEOREFERENCING_COLUMNS = """
+ALTER TABLE flood_simulation_run
+    ADD COLUMN IF NOT EXISTS elevation_transform_json TEXT,
+    ADD COLUMN IF NOT EXISTS elevation_crs_epsg INTEGER;
+"""
+"""Forward-migrates tables created before the real-Mumbai-data city-scale
+work added GeoTIFF output support -- same convention as the AOI columns
+above."""
+
 CREATE_FLOOD_SIMULATION_RUN_STATUS_INDEX = """
 CREATE INDEX IF NOT EXISTS ix_flood_simulation_run_status_created_at
     ON flood_simulation_run (status, created_at);
@@ -118,15 +129,28 @@ CREATE TABLE IF NOT EXISTS flood_simulation_output (
     mass_ledger_json                     TEXT NOT NULL,
     step_count                           INTEGER NOT NULL,
     simulated_duration_s                 DOUBLE PRECISION NOT NULL,
+    max_depth_geotiff_path               TEXT,
+    arrival_time_geotiff_path            TEXT,
+    duration_geotiff_path                TEXT,
     created_at                           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 """
 
+_ALTER_FLOOD_SIMULATION_OUTPUT_ADD_GEOTIFF_COLUMNS = """
+ALTER TABLE flood_simulation_output
+    ADD COLUMN IF NOT EXISTS max_depth_geotiff_path TEXT,
+    ADD COLUMN IF NOT EXISTS arrival_time_geotiff_path TEXT,
+    ADD COLUMN IF NOT EXISTS duration_geotiff_path TEXT;
+"""
+"""Forward-migrates tables created before GeoTIFF output support was added."""
+
 _STATEMENTS = (
     CREATE_FLOOD_SIMULATION_RUN,
     _ALTER_FLOOD_SIMULATION_RUN_ADD_AOI_COLUMNS,
+    _ALTER_FLOOD_SIMULATION_RUN_ADD_ELEVATION_GEOREFERENCING_COLUMNS,
     CREATE_FLOOD_SIMULATION_RUN_STATUS_INDEX,
     CREATE_FLOOD_SIMULATION_OUTPUT,
+    _ALTER_FLOOD_SIMULATION_OUTPUT_ADD_GEOTIFF_COLUMNS,
 )
 
 

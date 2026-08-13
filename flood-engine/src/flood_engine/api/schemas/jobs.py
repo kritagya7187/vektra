@@ -110,6 +110,13 @@ class SubmitSimulationRequest(BaseModel):
     """``(west, south, east, north)`` in EPSG:4326 -- Step 20 map-display metadata only.
     Never read by the solver or any computation; stored and echoed back verbatim.
     """
+    elevation_transform: tuple[float, float, float, float, float, float] | None = None
+    """Affine transform (GDAL 6-tuple) for ``elevation_path``'s grid. When supplied
+    together with ``elevation_crs_epsg``, the completed run's output is also written
+    as real georeferenced GeoTIFFs. Never read by the solver.
+    """
+    elevation_crs_epsg: int | None = None
+    """EPSG code matching ``elevation_transform``."""
 
 
 class SubmitSimulationResponse(BaseModel):

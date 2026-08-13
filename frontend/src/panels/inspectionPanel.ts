@@ -4,12 +4,6 @@ import { clear, h, mount } from '../utils/dom';
 import { createPanelShell, type PanelShellHandle } from './panelShell';
 import { renderProvenanceInspector } from './provenanceInspector';
 import type { PanelController } from './types';
-
-/**
- * Building Inspection Panel: "Click building -> Inspection panel ->
- * Provenance" as nested disclosure depths in one panel, not separate
- * overlays.
- */
 export function renderInspectionPanel(
   container: HTMLElement,
   onClose: () => void,
@@ -17,13 +11,10 @@ export function renderInspectionPanel(
   const shell = createPanelShell({ id: 'inspection', title: 'Building', onClose });
   mount(container, shell.element);
   shell.focus();
-
   const render = (): void => renderBody(shell);
   render();
-
   const unsubBuilding = buildingStore.subscribe(render);
   const unsubUi = uiStore.subscribe(render);
-
   return {
     destroy: (): void => {
       unsubBuilding();
@@ -33,12 +24,10 @@ export function renderInspectionPanel(
     },
   };
 }
-
 function renderBody(shell: PanelShellHandle): void {
   const { selection } = buildingStore.get();
   const ui = uiStore.get();
   clear(shell.body);
-
   if (selection.status === 'loading') {
     mount(shell.body, h('p', { role: 'status' }, 'Loading building…'));
     return;
@@ -58,9 +47,7 @@ function renderBody(shell: PanelShellHandle): void {
     mount(shell.body, h('p', {}, 'Select a building in the scene to inspect it.'));
     return;
   }
-
   const building = selection.building;
-
   const attributes = h(
     'dl',
     { class: 'inspection__attributes' },
@@ -77,7 +64,6 @@ function renderBody(shell: PanelShellHandle): void {
     h('dt', {}, 'Footprint area'),
     h('dd', {}, formatNullableNumber(building.footprintAreaSqm, 'm²')),
   );
-
   const provenanceToggle = h(
     'button',
     {
@@ -91,11 +77,8 @@ function renderBody(shell: PanelShellHandle): void {
     },
     ui.provenanceOpenForId === building.provenanceId ? 'Hide provenance' : 'Show provenance',
   );
-
   const provenanceContainer = h('div', { class: 'inspection__provenance' });
-
   mount(shell.body, attributes, provenanceToggle, provenanceContainer);
-
   if (ui.provenanceOpenForId === building.provenanceId) {
     renderProvenanceInspector(provenanceContainer, building.provenanceId);
   }

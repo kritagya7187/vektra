@@ -129,6 +129,7 @@ def run(
     rainfall_rates_mm_per_hr: NDArray[np.float64],
     solver_parameters: SolverParameters | None = None,
     timestepping_parameters: TimesteppingParameters | None = None,
+    total_duration_s: float | None = None,
 ) -> SimulationResult:
     """Run one full Stage 1 flood simulation and aggregate its output.
 
@@ -153,6 +154,9 @@ def run(
         timestepping_parameters: The infiltration-cadence parameter.
             Defaults to :class:`~flood_engine.core.timestepping.TimesteppingParameters`'s
             own default.
+        total_duration_s: Overrides the default stopping time (event
+            duration + recession tail). See
+            :func:`~flood_engine.core.timestepping.run_simulation`.
 
     Returns:
         A :class:`SimulationResult`.
@@ -184,6 +188,7 @@ def run(
         infiltration_loss_mm_per_hr=infiltration_loss_mm_per_hr,
         solver_parameters=solver_parameters,
         timestepping_parameters=timestepping_parameters,
+        total_duration_s=total_duration_s,
     )
 
     final_state = records[-1].result.state

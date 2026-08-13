@@ -5,7 +5,6 @@ import {
   showOnlyFloodMetric,
   toggleLayer,
 } from '../../../src/state/layerVisibilityState';
-
 function reset(): void {
   layerVisibilityStore.set({
     terrain: true,
@@ -16,9 +15,7 @@ function reset(): void {
     duration: false,
   });
 }
-
 beforeEach(reset);
-
 describe('setLayerVisible', () => {
   it('sets exactly the named layer, leaving every other layer untouched', () => {
     setLayerVisible('terrain', false);
@@ -28,7 +25,6 @@ describe('setLayerVisible', () => {
     expect(state.buildings3d).toBe(true);
   });
 });
-
 describe('toggleLayer', () => {
   it('flips exactly the named layer', () => {
     toggleLayer('imagery');
@@ -37,7 +33,6 @@ describe('toggleLayer', () => {
     expect(layerVisibilityStore.get().imagery).toBe(true);
   });
 });
-
 describe('showOnlyFloodMetric', () => {
   it('turns on exactly the named flood metric and turns off the other two', () => {
     showOnlyFloodMetric('arrivalTime');
@@ -46,7 +41,6 @@ describe('showOnlyFloodMetric', () => {
     expect(state.arrivalTime).toBe(true);
     expect(state.duration).toBe(false);
   });
-
   it('never touches terrain/imagery/buildings3d', () => {
     showOnlyFloodMetric('duration');
     const state = layerVisibilityStore.get();

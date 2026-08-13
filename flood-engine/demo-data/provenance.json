@@ -1,0 +1,27 @@
+{
+  "generated_at": "2026-08-13T13:55:47.693651+00:00",
+  "source_dem": "raster-cache\\srtm_dem\\USGS_SRTMGL1_003_72.7732289_18.8921596_72.9817485_19.2694771.tif",
+  "source_landcover": "raster-cache\\esa_worldcover\\ESA_WorldCover_v100_2020_72.7732289_18.8921596_72.9817485_19.2694771.tif",
+  "window_px": 120,
+  "grid_shape": [
+    124,
+    118
+  ],
+  "bounds_wgs84": [
+    72.86067977484046,
+    19.064587966153745,
+    72.89372739340703,
+    19.097566255000096
+  ],
+  "elevation_transform": [
+    29.112099545888267,
+    0.0,
+    274926.44163190015,
+    0.0,
+    -29.112099545888267,
+    2112956.563385692
+  ],
+  "elevation_crs_epsg": 32643,
+  "building_count": 1975,
+  "note": "Real windowed subset of the actual ingested Mumbai DEM/land-cover/buildings, not synthetic."
+}

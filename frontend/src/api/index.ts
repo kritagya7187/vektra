@@ -23,3 +23,5 @@ export {
   floodSimulationDownloadUrl,
   cancelFloodSimulation,
 } from './floodSimulations';
+export { listCityRuns, getCityRun, getCityRunBoundary, cityRunDownloadUrl } from './cityRuns';
+export { listRainfallEvents, prepareRainfallEvent } from './rainfallEvents';

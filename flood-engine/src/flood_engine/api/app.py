@@ -43,6 +43,8 @@ so nothing here needs it configured to function correctly.
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from flood_engine.api.routers.city_runs import router as city_runs_router
+from flood_engine.api.routers.rainfall_events import router as rainfall_events_router
 from flood_engine.api.routers.simulations import router as simulations_router
 from flood_engine.config import APIConfig
 from flood_engine.core.solver.wca2d import WCA2DError
@@ -79,6 +81,8 @@ def create_app() -> FastAPI:
         ),
     )
     fastapi_app.include_router(simulations_router)
+    fastapi_app.include_router(city_runs_router)
+    fastapi_app.include_router(rainfall_events_router)
     logger.info(
         "FastAPI application created",
         extra={"host": api_config.host, "port": api_config.port},

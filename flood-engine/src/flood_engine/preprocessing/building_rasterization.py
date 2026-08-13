@@ -37,7 +37,7 @@ from typing import Final
 import geopandas as gpd
 import numpy as np
 from numpy.typing import NDArray
-from shapely.geometry import box
+from shapely import box
 
 from flood_engine.io.raster_loader import RasterDataset, RasterValidationError
 from flood_engine.logging_config import LogSubsystem, get_logger, log_duration
@@ -135,6 +135,28 @@ def _rasterize_to_model_grid(
     equivalent split in DEM/land-cover preprocessing: keeps the guard
     clauses free of this function's local variables.
 
+    Only cells within a building's padded bounding box can possibly have
+    nonzero covered area (a real, provable geometric fact, not an
+    approximation) -- restricting cell-polygon construction and the
+    overlay to that candidate set, found necessary after this function's
+    original whole-grid implementation took over an hour and never
+    completed against the real, full-extent Mumbai grid (~1.09M cells).
+
+    Overlaid against the individual building polygons, not their
+    ``union_all()`` -- found necessary because ``geopandas.overlay``
+    tests every candidate cell against a *single* complex multi-part
+    geometry when given a unioned right-hand side, defeating its own
+    two-sided spatial index; overlaying against ~97.5K individual
+    buildings directly (real Mumbai scale) let that index prune
+    candidate pairs on both sides and was measured, in isolation against
+    the real data, to be the dominant remaining cost of this function.
+    Real building footprints do not overlap each other, but
+    ``dissolve(by="cell_id")`` before computing area guards against
+    double-counting even if two footprints in the same cell did overlap
+    -- exactly reproducing the union-based approach's result, not an
+    approximation of it. City-scale, per the NMS's own frozen >=50%
+    coverage-fraction threshold, unchanged.
+
     Args:
         buildings: Already-validated, non-empty, CRS-matching, all-valid
             building geometries.
@@ -143,35 +165,39 @@ def _rasterize_to_model_grid(
     Returns:
         A new, validated :class:`RasterDataset`.
     """
-    cell_grid = _build_cell_grid(model_grid)
+    candidate_cell_ids = _candidate_cell_ids(buildings, model_grid)
+    mask_flat: NDArray[np.uint8] = np.zeros(model_grid.height * model_grid.width, dtype=np.uint8)
 
-    buildings_union = gpd.GeoDataFrame(geometry=[buildings.union_all()], crs=buildings.crs)
-    # keep_geom_type=False: a cell/building pair that only shares an edge
-    # or a point (e.g. a building whose boundary exactly coincides with a
-    # cell boundary) produces a degenerate LineString/Point intersection
-    # with area 0.0 -- geopandas' default (True) silently drops these
-    # with a warning since their geometry type doesn't match the cell
-    # layer's Polygon type. Explicit here rather than relying on that
-    # default: verified the dropped rows always have area == 0.0 (a
-    # zero-area geometry cannot contribute to the coverage-fraction sum
-    # either way), so this changes no result, only makes the intent
-    # explicit and removes the warning.
-    overlay = gpd.overlay(cell_grid, buildings_union, how="intersection", keep_geom_type=False)
+    if len(candidate_cell_ids) > 0:
+        cell_grid = _build_cell_grid(model_grid, candidate_cell_ids)
 
-    coverage = cell_grid.set_index("cell_id")[["cell_area"]]
-    if len(overlay) > 0:
-        overlay["covered_area"] = overlay.geometry.area
-        per_cell_covered = overlay.groupby("cell_id")["covered_area"].sum()
-        coverage["covered_area"] = per_cell_covered
-    else:
-        coverage["covered_area"] = 0.0
-    coverage["covered_area"] = coverage["covered_area"].fillna(0.0)
-    coverage["fraction"] = coverage["covered_area"] / coverage["cell_area"]
-    coverage = coverage.sort_index()
+        # keep_geom_type=False: a cell/building pair that only shares an
+        # edge or a point (e.g. a building whose boundary exactly
+        # coincides with a cell boundary) produces a degenerate
+        # LineString/Point intersection with area 0.0 -- geopandas'
+        # default (True) silently drops these with a warning since their
+        # geometry type doesn't match the cell layer's Polygon type.
+        # Explicit here rather than relying on that default: verified the
+        # dropped rows always have area == 0.0 (a zero-area geometry
+        # cannot contribute to the coverage-fraction sum either way), so
+        # this changes no result, only makes the intent explicit and
+        # removes the warning.
+        overlay = gpd.overlay(
+            cell_grid, buildings[["geometry"]], how="intersection", keep_geom_type=False
+        )
 
-    mask_flat: NDArray[np.uint8] = (
-        coverage["fraction"] >= BUILDING_COVERAGE_THRESHOLD
-    ).to_numpy().astype(np.uint8)
+        coverage = cell_grid.set_index("cell_id")[["cell_area"]]
+        if len(overlay) > 0:
+            dissolved = overlay.dissolve(by="cell_id")
+            coverage["covered_area"] = dissolved.geometry.area
+        else:
+            coverage["covered_area"] = 0.0
+        coverage["covered_area"] = coverage["covered_area"].fillna(0.0)
+        coverage["fraction"] = coverage["covered_area"] / coverage["cell_area"]
+
+        covered_ids = coverage.index[coverage["fraction"] >= BUILDING_COVERAGE_THRESHOLD]
+        mask_flat[covered_ids.to_numpy()] = 1
+
     mask_data = mask_flat.reshape(model_grid.height, model_grid.width)
 
     return RasterDataset(
@@ -182,30 +208,69 @@ def _rasterize_to_model_grid(
     )
 
 
-def _build_cell_grid(model_grid: RasterDataset) -> gpd.GeoDataFrame:
-    """Build one box polygon per model-grid cell, in row-major order matching array indexing.
+def _candidate_cell_ids(buildings: gpd.GeoDataFrame, model_grid: RasterDataset) -> NDArray[np.intp]:
+    """Return every cell id whose padded bounding box could intersect a building.
 
-    Vectorized via NumPy rather than a nested Python loop calling
-    ``transform * (col, row)`` once per cell, so this stays reasonably
-    fast even for a realistic grid size -- this is still a one-time setup
-    operation, not per-timestep solver work, so it does not need to be
-    as aggressively optimized as that would.
+    Any cell outside every building's own (1-cell-padded) bounding box
+    provably has zero covered area -- padding absorbs the case where a
+    building's true footprint extends slightly beyond its own bounding
+    box relative to the grid's alignment. Restricting the expensive
+    polygon-overlay step to this candidate set is what makes city-scale
+    rasterization tractable; it changes no output, only which
+    provably-zero cells are skipped.
 
     Args:
-        model_grid: Supplies the transform and shape every cell polygon
-            is derived from.
+        buildings: Already-validated building geometries.
+        model_grid: Supplies the transform/shape to convert building
+            bounds into cell row/col ranges.
 
     Returns:
-        A GeoDataFrame with columns ``cell_id`` (``row * width + col``,
-        the same row-major order ``numpy.reshape`` uses -- what makes
-        reassembling the final mask array from this table correct),
-        ``cell_area``, and a box geometry per cell.
+        Sorted, deduplicated row-major cell ids (``row * width + col``).
     """
-    rows, cols = np.meshgrid(
-        np.arange(model_grid.height), np.arange(model_grid.width), indexing="ij"
-    )
-    rows_flat = rows.ravel()
-    cols_flat = cols.ravel()
+    inv = ~model_grid.transform
+    bounds = buildings.geometry.bounds.to_numpy()
+    minx, miny, maxx, maxy = bounds[:, 0], bounds[:, 1], bounds[:, 2], bounds[:, 3]
+
+    col_a, row_a = inv * (minx, miny)
+    col_b, row_b = inv * (maxx, maxy)
+    col0 = np.floor(np.minimum(col_a, col_b)).astype(np.intp) - 1
+    col1 = np.ceil(np.maximum(col_a, col_b)).astype(np.intp) + 1
+    row0 = np.floor(np.minimum(row_a, row_b)).astype(np.intp) - 1
+    row1 = np.ceil(np.maximum(row_a, row_b)).astype(np.intp) + 1
+
+    col0 = np.clip(col0, 0, model_grid.width - 1)
+    col1 = np.clip(col1, 0, model_grid.width - 1)
+    row0 = np.clip(row0, 0, model_grid.height - 1)
+    row1 = np.clip(row1, 0, model_grid.height - 1)
+
+    candidate_mask = np.zeros((model_grid.height, model_grid.width), dtype=np.bool_)
+    for r0, r1, c0, c1 in zip(row0, row1, col0, col1, strict=True):
+        candidate_mask[r0 : r1 + 1, c0 : c1 + 1] = True
+
+    return np.flatnonzero(candidate_mask.ravel())
+
+
+def _build_cell_grid(model_grid: RasterDataset, cell_ids: NDArray[np.intp]) -> gpd.GeoDataFrame:
+    """Build one box polygon per given model-grid cell id.
+
+    Vectorized via NumPy/shapely's array-input ``box()`` rather than a
+    Python-level loop -- with a full-city cell count (~1M for Mumbai)
+    a per-cell Python loop measurably dominated runtime even before
+    :func:`_candidate_cell_ids` existed to shrink the candidate set.
+
+    Args:
+        model_grid: Supplies the transform used to convert cell ids to
+            coordinates.
+        cell_ids: Row-major cell ids (``row * width + col``) to build
+            polygons for -- typically :func:`_candidate_cell_ids`'s
+            output, not necessarily the whole grid.
+
+    Returns:
+        A GeoDataFrame with columns ``cell_id``, ``cell_area``, and a box
+        geometry per requested cell.
+    """
+    rows_flat = cell_ids // model_grid.width
+    cols_flat = cell_ids % model_grid.width
 
     a, b, c, d, e, f = (
         model_grid.transform.a,
@@ -220,11 +285,7 @@ def _build_cell_grid(model_grid: RasterDataset) -> gpd.GeoDataFrame:
     x1 = a * (cols_flat + 1) + b * (rows_flat + 1) + c
     y1 = d * (cols_flat + 1) + e * (rows_flat + 1) + f
 
-    cell_ids = rows_flat * model_grid.width + cols_flat
-    boxes = [
-        box(min(x0[i], x1[i]), min(y0[i], y1[i]), max(x0[i], x1[i]), max(y0[i], y1[i]))
-        for i in range(len(cell_ids))
-    ]
+    boxes = box(np.minimum(x0, x1), np.minimum(y0, y1), np.maximum(x0, x1), np.maximum(y0, y1))
 
     cell_grid = gpd.GeoDataFrame({"cell_id": cell_ids}, geometry=boxes, crs=model_grid.crs)
     cell_grid["cell_area"] = cell_grid.geometry.area

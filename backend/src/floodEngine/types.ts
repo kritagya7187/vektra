@@ -58,7 +58,19 @@ export interface SubmitSimulationRequest {
   readonly solverParameters?: SolverParametersOverride;
   readonly timesteppingParameters?: TimesteppingParametersOverride;
   readonly aoiBoundsWgs84?: AoiBoundsWgs84;
+  readonly elevationTransform?: ElevationTransform;
+  readonly elevationCrsEpsg?: number;
 }
+
+/** GDAL affine 6-tuple (a, b, c, d, e, f) for `elevationPath`'s grid. */
+export type ElevationTransform = readonly [
+  a: number,
+  b: number,
+  c: number,
+  d: number,
+  e: number,
+  f: number,
+];
 
 export interface SubmitSimulationResult {
   readonly runId: string;
@@ -100,12 +112,21 @@ export interface FloodOutputSummary {
   readonly simulatedDurationS: number;
 }
 
-export type SimulationArtifact = 'max-depth' | 'arrival-time' | 'duration-above-threshold';
+export type SimulationArtifact =
+  | 'max-depth'
+  | 'arrival-time'
+  | 'duration-above-threshold'
+  | 'max-depth-geotiff'
+  | 'arrival-time-geotiff'
+  | 'duration-above-threshold-geotiff';
 
 export const SIMULATION_ARTIFACTS: readonly SimulationArtifact[] = [
   'max-depth',
   'arrival-time',
   'duration-above-threshold',
+  'max-depth-geotiff',
+  'arrival-time-geotiff',
+  'duration-above-threshold-geotiff',
 ];
 
 /** Exactly the raw bytes flood-engine streamed back — never parsed, never modified. */
@@ -139,6 +160,8 @@ export interface SubmitSimulationRequestWire {
   readonly solver_parameters?: SolverParametersOverrideWire;
   readonly timestepping_parameters?: TimesteppingParametersOverrideWire;
   readonly aoi_bounds_wgs84?: AoiBoundsWgs84;
+  readonly elevation_transform?: ElevationTransform;
+  readonly elevation_crs_epsg?: number;
 }
 
 export interface SubmitSimulationResponseWire {
@@ -171,4 +194,95 @@ export interface FloodOutputSummaryWire {
   readonly mass_ledger: MassLedgerWire;
   readonly step_count: number;
   readonly simulated_duration_s: number;
+}
+
+/**
+ * Tiled city-scale run artifacts (`flood_engine.cli.run_city_scale`
+ * output), read verbatim from disk by flood-engine's `/api/v1/city-runs`
+ * router — a separate concept from the DB-backed single-scenario job
+ * queue above. `manifest`/`runSummary`/`runStatus` are passed through
+ * unmodified (their real internal field names, whatever they are); only
+ * the wrapper-level fields get the usual snake_case -> camelCase rename.
+ */
+export interface CityRunSummary {
+  readonly runId: string;
+  readonly createdAt: string | null;
+  readonly status: string;
+  readonly tileCount: number;
+  readonly tilesCompleted: number;
+}
+
+export interface CityRunDetail {
+  readonly manifest: Record<string, unknown>;
+  readonly runSummary: Record<string, unknown> | null;
+  readonly runStatus: Record<string, unknown> | null;
+}
+
+export interface CityRunSummaryWire {
+  readonly run_id: string;
+  readonly created_at: string | null;
+  readonly status: string;
+  readonly tile_count: number;
+  readonly tiles_completed: number;
+}
+
+export interface CityRunDetailWire {
+  readonly manifest: Record<string, unknown>;
+  readonly run_summary: Record<string, unknown> | null;
+  readonly run_status: Record<string, unknown> | null;
+}
+
+export type CityRunArtifact = 'max-depth-geotiff' | 'arrival-time-geotiff' | 'duration-above-threshold-geotiff';
+
+/** A real GeoJSON document, passed through verbatim -- its own field names are the GeoJSON spec, never renamed. */
+export type CityRunBoundary = Record<string, unknown>;
+
+export interface RainfallDay {
+  readonly date: string;
+  readonly totalMm: number;
+  readonly maxHourlyMm: number;
+}
+
+export interface RainfallProvenance {
+  readonly sourceProductIdentifier: string;
+  readonly license: string;
+  readonly retrievedAt: string;
+  readonly sourceDisplayName: string;
+}
+
+export interface RainfallEventList {
+  readonly station: { readonly lon: number; readonly lat: number };
+  readonly provenance: RainfallProvenance | null;
+  readonly days: readonly RainfallDay[];
+}
+
+export interface PrepareRainfallEventResult {
+  readonly rainfallRatesPath: string;
+  readonly hours: number;
+  readonly totalMm: number;
+}
+
+export interface RainfallDayWire {
+  readonly date: string;
+  readonly total_mm: number;
+  readonly max_hourly_mm: number;
+}
+
+export interface RainfallProvenanceWire {
+  readonly source_product_identifier: string;
+  readonly license: string;
+  readonly retrieved_at: string;
+  readonly source_display_name: string;
+}
+
+export interface RainfallEventListWire {
+  readonly station: { readonly lon: number; readonly lat: number };
+  readonly provenance: RainfallProvenanceWire | null;
+  readonly days: readonly RainfallDayWire[];
+}
+
+export interface PrepareRainfallEventResultWire {
+  readonly rainfall_rates_path: string;
+  readonly hours: number;
+  readonly total_mm: number;
 }

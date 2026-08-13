@@ -34,6 +34,8 @@ class TestSimulationRunRow:
             aoi_south=None,
             aoi_east=None,
             aoi_north=None,
+            elevation_transform_json=None,
+            elevation_crs_epsg=None,
         )
 
         assert row.id == "run-1"
@@ -65,6 +67,8 @@ class TestSimulationRunRow:
             aoi_south=None,
             aoi_east=None,
             aoi_north=None,
+            elevation_transform_json=None,
+            elevation_crs_epsg=None,
         )
 
         with pytest.raises(AttributeError):
@@ -82,6 +86,9 @@ class TestSimulationOutputRow:
             mass_ledger_json='{"rainfall_input_m3": 1.0}',
             step_count=5,
             simulated_duration_s=120.0,
+            max_depth_geotiff_path=None,
+            arrival_time_geotiff_path=None,
+            duration_geotiff_path=None,
             created_at=now,
         )
 
@@ -99,6 +106,9 @@ class TestSimulationOutputRow:
             mass_ledger_json="{}",
             step_count=1,
             simulated_duration_s=1.0,
+            max_depth_geotiff_path=None,
+            arrival_time_geotiff_path=None,
+            duration_geotiff_path=None,
             created_at=now,
         )
 

@@ -54,12 +54,17 @@ _ARTIFACT_ATTRIBUTES: dict[str, str] = {
     "max-depth": "max_depth_location",
     "arrival-time": "arrival_time_location",
     "duration-above-threshold": "duration_above_threshold_location",
+    "max-depth-geotiff": "max_depth_geotiff_path",
+    "arrival-time-geotiff": "arrival_time_geotiff_path",
+    "duration-above-threshold-geotiff": "duration_geotiff_path",
 }
 """URL-facing artifact names -> SimulationOutputRow attribute names.
 
 Kebab-case in the URL (REST convention for path segments) mapped to the
 domain type's own snake_case field names -- a naming-convention
-translation only, not a new concept.
+translation only, not a new concept. The ``-geotiff`` variants are
+``None`` for runs submitted without elevation georeferencing -- handled
+as a 404 below, not a fabricated file.
 """
 
 
@@ -90,6 +95,8 @@ def submit_simulation(
             if request.timestepping_parameters
             else None,
             aoi_bounds_wgs84=request.aoi_bounds_wgs84,
+            elevation_transform=request.elevation_transform,
+            elevation_crs_epsg=request.elevation_crs_epsg,
         )
     except (PersistenceError, psycopg.Error) as exc:
         logger.exception("Failed to enqueue simulation")
@@ -156,7 +163,15 @@ def get_simulation_summary(run_id: str, repository: RepositoryDep) -> FloodOutpu
 
 @router.get("/{run_id}/download/{artifact}")
 def download_simulation_artifact(
-    run_id: str, artifact: Literal["max-depth", "arrival-time", "duration-above-threshold"],
+    run_id: str,
+    artifact: Literal[
+        "max-depth",
+        "arrival-time",
+        "duration-above-threshold",
+        "max-depth-geotiff",
+        "arrival-time-geotiff",
+        "duration-above-threshold-geotiff",
+    ],
     repository: RepositoryDep,
 ) -> FileResponse:
     """Stream one raw ``.npy`` output array directly from disk.
@@ -194,17 +209,25 @@ def download_simulation_artifact(
         raise HTTPException(status_code=500, detail="Simulation output is missing.")
 
     attribute_name = _ARTIFACT_ATTRIBUTES[artifact]
-    file_path = Path(getattr(locations, attribute_name))
+    raw_path = getattr(locations, attribute_name)
+    if raw_path is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Run {run_id!r} was not submitted with elevation georeferencing; "
+            f"no {artifact!r} GeoTIFF exists.",
+        )
+    file_path = Path(raw_path)
     if not file_path.exists():
         logger.error(
             "Output array file is missing from disk",
             extra={"run_id": run_id, "path": str(file_path)},
         )
         raise HTTPException(status_code=500, detail="Output array file is missing from disk.")
+    is_geotiff = artifact.endswith("-geotiff")
     return FileResponse(
         path=file_path,
-        media_type="application/octet-stream",
-        filename=f"{run_id}-{artifact}.npy",
+        media_type="image/tiff" if is_geotiff else "application/octet-stream",
+        filename=f"{run_id}-{artifact}.{'tif' if is_geotiff else 'npy'}",
     )
 
 

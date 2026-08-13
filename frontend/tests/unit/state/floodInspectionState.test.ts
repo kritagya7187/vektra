@@ -5,12 +5,10 @@ import {
   inspectFloodPoint,
 } from '../../../src/state/floodInspectionState';
 import { floodRunStore } from '../../../src/state/floodRunState';
-
 beforeEach(() => {
   floodInspectionStore.set(null);
   floodRunStore.set({ status: 'idle', activeRun: null, summary: null, error: null });
 });
-
 describe('inspectFloodPoint', () => {
   it('records coordinates with null values when no summary is loaded yet', () => {
     inspectFloodPoint(72.85, 18.95);
@@ -22,7 +20,6 @@ describe('inspectFloodPoint', () => {
       durationMin: null,
     });
   });
-
   it('samples the real, already-loaded summary grids at the clicked point', () => {
     floodRunStore.set((previous) => ({
       ...previous,
@@ -55,10 +52,7 @@ describe('inspectFloodPoint', () => {
         simulatedDurationS: 1,
       },
     }));
-
-    // Northwest corner -> row 0, col 0.
     inspectFloodPoint(0.1, 1.9);
-
     expect(floodInspectionStore.get()).toEqual({
       lon: 0.1,
       lat: 1.9,
@@ -68,7 +62,6 @@ describe('inspectFloodPoint', () => {
     });
   });
 });
-
 describe('clearFloodInspection', () => {
   it('resets the store to null', () => {
     inspectFloodPoint(1, 1);

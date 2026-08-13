@@ -7,15 +7,15 @@
 # split): the frontend has no application dependencies that survive into
 # the runtime image at all — the shipped artifact is a static dist/
 # directory plus one small, unrelated static-file-server package, never
-# frontend/package.json's own node_modules (which includes `cesium`, a
-# large package needed only to produce the build, never to serve it).
+# frontend/package.json's own node_modules (which includes `maplibre-gl`/
+# `deck.gl`, needed only to produce the build, never to serve it).
 # Re-running `npm ci` against frontend/package.json in the runtime stage
-# would pull `cesium` back in for no reason and defeat the point of a
+# would pull them back in for no reason and defeat the point of a
 # separate stage.
 #
 #   build   — full dependency tree (incl. devDependencies: vite,
-#             typescript, vite-plugin-cesium), compiles the app to
-#             dist/. Nothing from this stage except dist/ survives.
+#             typescript), compiles the app to dist/. Nothing from this
+#             stage except dist/ survives.
 #   runtime — a fresh image with ONLY `serve` (a minimal, dependency-free
 #             static file server — the "lightweight web server" the EDD
 #             itself left as an open implementation choice, Section 34)
@@ -52,12 +52,16 @@ COPY src ./src
 # `build.args` (sourced from the operator's own .env, never committed —
 # see repository-root .env.example). frontend/src/config.ts's
 # requireEnv() already fails the build loudly (via vite build's own
-# import.meta.env resolution) if either is missing, so no additional
-# validation is added here.
+# import.meta.env resolution) if VITE_API_BASE_URL is missing; the other
+# three are optional there too (real, sensible defaults — see config.ts).
 ARG VITE_API_BASE_URL
-ARG VITE_CESIUM_ION_TOKEN
+ARG VITE_MAP_STYLE_URL
+ARG VITE_TERRAIN_TILE_URL
+ARG VITE_GOOGLE_3D_TILES_API_KEY
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
-ENV VITE_CESIUM_ION_TOKEN=${VITE_CESIUM_ION_TOKEN}
+ENV VITE_MAP_STYLE_URL=${VITE_MAP_STYLE_URL}
+ENV VITE_TERRAIN_TILE_URL=${VITE_TERRAIN_TILE_URL}
+ENV VITE_GOOGLE_3D_TILES_API_KEY=${VITE_GOOGLE_3D_TILES_API_KEY}
 
 RUN npm run build
 

@@ -1,27 +1,14 @@
 import { ApiError, getDataProvenanceRecord, getDataSource } from '../api';
 import { formatNullableText, formatTimestamp } from '../utils/formatting';
 import { clear, h, mount } from '../utils/dom';
-
-/**
- * Provenance Inspector (design review §4 item 4, EDD Section 22: "source,
- * version, and retrieval timestamp for any displayed value", Section 24).
- * Depth-3 disclosure nested inside the Inspection Panel — a self-
- * contained, on-demand fetch (design review §8's own note: this is a
- * leaf lookup, not one of the five shared state domains), but it still
- * only ever calls the API layer (api/dataProvenance.ts), never fetches
- * directly.
- */
 export function renderProvenanceInspector(container: HTMLElement, provenanceId: string): void {
   mount(container, h('p', { class: 'provenance__loading', role: 'status' }, 'Loading provenance…'));
-
   void loadAndRender(container, provenanceId);
 }
-
 async function loadAndRender(container: HTMLElement, provenanceId: string): Promise<void> {
   try {
     const record = await getDataProvenanceRecord(provenanceId);
     const source = await getDataSource(record.sourceCode).catch(() => null);
-
     clear(container);
     mount(
       container,

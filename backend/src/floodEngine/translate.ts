@@ -13,8 +13,16 @@
  */
 
 import type {
+  CityRunDetail,
+  CityRunDetailWire,
+  CityRunSummary,
+  CityRunSummaryWire,
   FloodOutputSummary,
   FloodOutputSummaryWire,
+  PrepareRainfallEventResult,
+  PrepareRainfallEventResultWire,
+  RainfallEventList,
+  RainfallEventListWire,
   SimulationRunStatus,
   SimulationRunStatusWire,
   SolverParametersOverride,
@@ -65,6 +73,8 @@ export function toSubmitSimulationRequestWire(
     solver_parameters: toSolverParametersWire(request.solverParameters),
     timestepping_parameters: toTimesteppingParametersWire(request.timesteppingParameters),
     aoi_bounds_wgs84: request.aoiBoundsWgs84,
+    elevation_transform: request.elevationTransform,
+    elevation_crs_epsg: request.elevationCrsEpsg,
   };
 }
 
@@ -111,5 +121,52 @@ export function fromFloodOutputSummaryWire(wire: FloodOutputSummaryWire): FloodO
     },
     stepCount: wire.step_count,
     simulatedDurationS: wire.simulated_duration_s,
+  };
+}
+
+export function fromCityRunSummaryWire(wire: CityRunSummaryWire): CityRunSummary {
+  return {
+    runId: wire.run_id,
+    createdAt: wire.created_at,
+    status: wire.status,
+    tileCount: wire.tile_count,
+    tilesCompleted: wire.tiles_completed,
+  };
+}
+
+export function fromCityRunDetailWire(wire: CityRunDetailWire): CityRunDetail {
+  return {
+    manifest: wire.manifest,
+    runSummary: wire.run_summary,
+    runStatus: wire.run_status,
+  };
+}
+
+export function fromRainfallEventListWire(wire: RainfallEventListWire): RainfallEventList {
+  return {
+    station: wire.station,
+    provenance: wire.provenance
+      ? {
+          sourceProductIdentifier: wire.provenance.source_product_identifier,
+          license: wire.provenance.license,
+          retrievedAt: wire.provenance.retrieved_at,
+          sourceDisplayName: wire.provenance.source_display_name,
+        }
+      : null,
+    days: wire.days.map((day) => ({
+      date: day.date,
+      totalMm: day.total_mm,
+      maxHourlyMm: day.max_hourly_mm,
+    })),
+  };
+}
+
+export function fromPrepareRainfallEventResultWire(
+  wire: PrepareRainfallEventResultWire,
+): PrepareRainfallEventResult {
+  return {
+    rainfallRatesPath: wire.rainfall_rates_path,
+    hours: wire.hours,
+    totalMm: wire.total_mm,
   };
 }

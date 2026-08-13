@@ -2,9 +2,11 @@
 
 Covers: required-field validation, defaults, the password-secrecy
 guarantee, and full AppConfig composition via load_config(). No database,
-filesystem, or running service is touched -- pydantic-settings reads only
-environment variables (and a possibly-absent .env, which is safely skipped
-when missing).
+filesystem, or running service is touched. pydantic-settings resolves
+".env" relative to the current working directory, and a real .env now
+exists at the flood-engine repo root for local deployment -- every test
+here runs with cwd changed to an empty tmp_path so those real values
+never leak into an assertion about defaults.
 """
 
 from pathlib import Path
@@ -29,6 +31,11 @@ REQUIRED_DATABASE_ENV = {
     "POSTGRES_USER": "vektra_backend_api",
     "POSTGRES_PASSWORD": "test-password",
 }
+
+
+@pytest.fixture(autouse=True)
+def _isolated_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
 
 
 def _set_required_database_env(monkeypatch: pytest.MonkeyPatch) -> None:

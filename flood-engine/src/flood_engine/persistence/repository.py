@@ -49,6 +49,8 @@ from pathlib import Path
 import numpy as np
 import psycopg
 from psycopg_pool import ConnectionPool
+from rasterio.crs import CRS
+from rasterio.transform import Affine
 
 from flood_engine.config import DatabaseConfig, StorageConfig
 from flood_engine.core.solver.wca2d import SolverParameters
@@ -56,6 +58,7 @@ from flood_engine.core.timestepping import TimesteppingParameters
 from flood_engine.jobs.models import ClaimedJob, JobStatus, RunId
 from flood_engine.logging_config import LogSubsystem, get_logger
 from flood_engine.output.generator import FloodOutputSummary
+from flood_engine.output.geotiff import write_flood_output_geotiffs
 from flood_engine.persistence.models import SimulationOutputRow, SimulationRunRow
 from flood_engine.persistence.serialization import (
     read_array,
@@ -158,6 +161,8 @@ class PostgresJobRepository:
         solver_parameters: SolverParameters | None = None,
         timestepping_parameters: TimesteppingParameters | None = None,
         aoi_bounds_wgs84: tuple[float, float, float, float] | None = None,
+        elevation_transform: tuple[float, float, float, float, float, float] | None = None,
+        elevation_crs_epsg: int | None = None,
     ) -> RunId:
         """Insert a new ``pending`` run. Not part of the frozen JobRepository Protocol.
 
@@ -185,6 +190,12 @@ class PostgresJobRepository:
                 EPSG:4326, for map display only (Step 20). Never read by
                 any computation -- pure metadata, stored and echoed back
                 verbatim.
+            elevation_transform: Optional affine transform (GDAL 6-tuple)
+                for ``elevation_path``'s grid. When supplied together
+                with ``elevation_crs_epsg``, the completed run's output
+                is also written as real georeferenced GeoTIFFs.
+            elevation_crs_epsg: Optional EPSG code matching
+                ``elevation_transform``.
 
         Returns:
             The newly-created run's id.
@@ -200,6 +211,9 @@ class PostgresJobRepository:
         aoi_west, aoi_south, aoi_east, aoi_north = (
             aoi_bounds_wgs84 if aoi_bounds_wgs84 is not None else (None, None, None, None)
         )
+        elevation_transform_json = (
+            json.dumps(list(elevation_transform)) if elevation_transform is not None else None
+        )
         try:
             with self._pool.connection() as conn, conn.transaction():
                 conn.execute(
@@ -208,8 +222,9 @@ class PostgresJobRepository:
                         (id, scenario_id, status, elevation_path, building_mask_path,
                          manning_n_path, infiltration_loss_path, rainfall_rates_path,
                          solver_parameters_json, timestepping_parameters_json,
-                         aoi_west, aoi_south, aoi_east, aoi_north)
-                    VALUES (%s, %s, 'pending', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                         aoi_west, aoi_south, aoi_east, aoi_north,
+                         elevation_transform_json, elevation_crs_epsg)
+                    VALUES (%s, %s, 'pending', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         run_id,
@@ -225,6 +240,8 @@ class PostgresJobRepository:
                         aoi_south,
                         aoi_east,
                         aoi_north,
+                        elevation_transform_json,
+                        elevation_crs_epsg,
                     ),
                 )
         except psycopg.Error as exc:
@@ -253,7 +270,8 @@ class PostgresJobRepository:
                     """
                     SELECT id, elevation_path, building_mask_path, manning_n_path,
                            infiltration_loss_path, rainfall_rates_path,
-                           solver_parameters_json, timestepping_parameters_json
+                           solver_parameters_json, timestepping_parameters_json,
+                           elevation_transform_json, elevation_crs_epsg
                     FROM flood_simulation_run
                     WHERE status = 'pending'
                     ORDER BY created_at
@@ -273,6 +291,8 @@ class PostgresJobRepository:
                     rainfall_rates_path,
                     solver_json,
                     timestepping_json,
+                    elevation_transform_json,
+                    elevation_crs_epsg,
                 ) = pending_row
 
                 conn.execute(
@@ -301,11 +321,22 @@ class PostgresJobRepository:
             timestepping_parameters=TimesteppingParameters(**json.loads(timestepping_json))
             if timestepping_json
             else None,
+            elevation_transform=tuple(json.loads(elevation_transform_json))
+            if elevation_transform_json
+            else None,
+            elevation_crs_epsg=elevation_crs_epsg,
         )
         logger.info("simulation.claimed", extra={"run_id": job.run_id})
         return job
 
-    def mark_completed(self, run_id: RunId, summary: FloodOutputSummary) -> None:
+    def mark_completed(
+        self,
+        run_id: RunId,
+        summary: FloodOutputSummary,
+        *,
+        elevation_transform: tuple[float, float, float, float, float, float] | None = None,
+        elevation_crs_epsg: int | None = None,
+    ) -> None:
         """See :meth:`flood_engine.jobs.repository.JobRepository.mark_completed`.
 
         Writes the three output arrays to disk (outside any DB
@@ -317,11 +348,26 @@ class PostgresJobRepository:
         A DB failure after the array write leaves an orphaned ``.npy``
         file on disk -- a known, accepted limitation (see the Step 17
         freeze audit), not a database consistency violation.
+
+        When ``elevation_transform``/``elevation_crs_epsg`` are both
+        given, also writes real georeferenced GeoTIFFs alongside the
+        ``.npy`` arrays and records their paths. When either is missing,
+        the GeoTIFF columns stay ``NULL`` -- an honest "not
+        georeferenced" signal, never a fabricated CRS.
         """
         locations = write_output_arrays(
             summary, base_dir=self._output_storage_dir, run_id=run_id
         )
         ledger_json = serialize_mass_ledger(summary.mass_ledger)
+
+        geotiff_paths: dict[str, Path] = {}
+        if elevation_transform is not None and elevation_crs_epsg is not None:
+            geotiff_paths = write_flood_output_geotiffs(
+                summary,
+                transform=Affine(*elevation_transform),
+                crs=CRS.from_epsg(elevation_crs_epsg),
+                out_dir=self._output_storage_dir / run_id / "geotiff",
+            )
 
         try:
             with self._pool.connection() as conn, conn.transaction():
@@ -343,8 +389,9 @@ class PostgresJobRepository:
                     INSERT INTO flood_simulation_output
                         (run_id, max_depth_location, arrival_time_location,
                          duration_above_threshold_location, mass_ledger_json,
-                         step_count, simulated_duration_s)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                         step_count, simulated_duration_s, max_depth_geotiff_path,
+                         arrival_time_geotiff_path, duration_geotiff_path)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         run_id,
@@ -354,6 +401,11 @@ class PostgresJobRepository:
                         ledger_json,
                         summary.step_count,
                         summary.simulated_duration_s,
+                        str(geotiff_paths["max_depth_m"]) if geotiff_paths else None,
+                        str(geotiff_paths["arrival_time_min"]) if geotiff_paths else None,
+                        str(geotiff_paths["duration_above_threshold_min"])
+                        if geotiff_paths
+                        else None,
                     ),
                 )
         except IllegalTransitionError:
@@ -506,7 +558,8 @@ def read_run(conn: psycopg.Connection, run_id: RunId) -> SimulationRunRow | None
                manning_n_path, infiltration_loss_path, rainfall_rates_path,
                solver_parameters_json, timestepping_parameters_json, worker_id,
                attempt_count, created_at, started_at, completed_at, cancelled_at,
-               error_message, updated_at, aoi_west, aoi_south, aoi_east, aoi_north
+               error_message, updated_at, aoi_west, aoi_south, aoi_east, aoi_north,
+               elevation_transform_json, elevation_crs_epsg
         FROM flood_simulation_run
         WHERE id = %s
         """,
@@ -537,6 +590,8 @@ def read_run(conn: psycopg.Connection, run_id: RunId) -> SimulationRunRow | None
         aoi_south=row[19],
         aoi_east=row[20],
         aoi_north=row[21],
+        elevation_transform_json=row[22],
+        elevation_crs_epsg=row[23],
     )
 
 
@@ -562,7 +617,8 @@ def read_output_locations(conn: psycopg.Connection, run_id: RunId) -> Simulation
         """
         SELECT run_id, max_depth_location, arrival_time_location,
                duration_above_threshold_location, mass_ledger_json,
-               step_count, simulated_duration_s, created_at
+               step_count, simulated_duration_s, max_depth_geotiff_path,
+               arrival_time_geotiff_path, duration_geotiff_path, created_at
         FROM flood_simulation_output
         WHERE run_id = %s
         """,
@@ -578,7 +634,10 @@ def read_output_locations(conn: psycopg.Connection, run_id: RunId) -> Simulation
         mass_ledger_json=row[4],
         step_count=row[5],
         simulated_duration_s=row[6],
-        created_at=row[7],
+        max_depth_geotiff_path=row[7],
+        arrival_time_geotiff_path=row[8],
+        duration_geotiff_path=row[9],
+        created_at=row[10],
     )
 
 

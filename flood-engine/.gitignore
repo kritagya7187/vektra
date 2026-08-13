@@ -20,3 +20,6 @@ venv/
 # what belongs here; not created yet)
 .env
 .coverage
+aoi_cache/
+run-output/
+raster-cache/

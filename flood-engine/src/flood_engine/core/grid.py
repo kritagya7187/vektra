@@ -29,4 +29,12 @@ MODEL_GRID_EPSG_CODE: Final[int] = 32643
 """UTM Zone 43N -- the model grid's CRS (NMS "Grid": "WGS84 degrees are not usable here")."""
 
 MODEL_GRID_RESOLUTION_M: Final[float] = 30.0
-"""Target model grid resolution in meters, native to the Copernicus GLO-30 posting (NMS "Grid")."""
+"""Target model grid resolution in meters (NMS "Grid").
+
+Matches SRTM's native ~30m (1 arc-second) posting -- the DEM this
+project actually ingests (source code ``srtm_dem``, via GEE and
+OpenTopography). An earlier version of this comment said "Copernicus
+GLO-30"; no Copernicus GLO-30 data has ever been ingested by this
+project, so that was corrected to match the real ingested source, not
+the other way around.
+"""

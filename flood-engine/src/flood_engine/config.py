@@ -68,7 +68,7 @@ class RasterConfig(BaseSettings):
     ``storage_dir`` reuses the exact meaning and default container path of
     the Node backend's existing ``RASTER_STORAGE_DIR`` (see
     ``docker-compose.yml``) -- flood-engine reads the same already-ingested
-    Copernicus GLO-30 DEM and ESA WorldCover rasters the existing GEE
+    SRTM DEM and ESA WorldCover rasters the existing GEE
     ingestion pipeline wrote there; it does not maintain a second copy.
     The exact sub-path/filename convention within this directory is
     defined when raster loading utilities are implemented (Step 6), not

@@ -63,16 +63,26 @@ MANNING_N_BY_LANDCOVER_CLASS: Final[dict[int, float]] = {
     BUILT_UP: 0.016,
     BARE_SPARSE_VEGETATION: 0.025,
     PERMANENT_WATER_BODIES: 0.028,
+    # Found missing by running against the real Mumbai ESA WorldCover
+    # extract: mangroves and herbaceous wetland are both really present
+    # on this AOI's coastline (a prior claim here that they were "not
+    # physically plausible for the Mumbai AOI" was wrong and has been
+    # removed). No Chow (1959) entry names mangroves/wetland directly;
+    # both are reused from the closest already-sourced category on
+    # physical-similarity grounds (dense woody/marsh vegetation), the
+    # same reasoning already used for BUILDING_MANNING_N_PLACEHOLDER.
+    MANGROVES: 0.120,
+    HERBACEOUS_WETLAND: 0.040,
 }
-"""The frozen NMS table does not address snow/ice, herbaceous wetland,
-mangroves, or moss/lichen -- all real ESA WorldCover classes, but not
-physically plausible for the Mumbai AOI this project targets, and not
-covered by any range in the NMS's own "Roughness" section. Deliberately
-absent rather than guessed at; :func:`roughness_grid` raises on any class
-code not in this table rather than silently defaulting, matching this
-project's standing rule against fabricating values (the same discipline
-already applied to ``isHeightEstimated`` and the building multi-cell
-max-depth convention)."""
+"""The frozen NMS table does not address snow/ice or moss/lichen --
+real ESA WorldCover classes, but not physically plausible for the
+Mumbai AOI this project targets, and not covered by any range in the
+NMS's own "Roughness" section. Deliberately absent rather than guessed
+at; :func:`roughness_grid` raises on any class code not in this table
+rather than silently defaulting, matching this project's standing rule
+against fabricating values (the same discipline already applied to
+``isHeightEstimated`` and the building multi-cell max-depth
+convention)."""
 
 BUILDING_MANNING_N_PLACEHOLDER: Final[float] = MANNING_N_BY_LANDCOVER_CLASS[BUILT_UP]
 """``DomainInputs.__post_init__`` requires ``manning_n`` to be strictly
