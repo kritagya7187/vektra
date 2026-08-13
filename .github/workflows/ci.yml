@@ -159,8 +159,8 @@ jobs:
         # a second for RATE_LIMIT_ENABLED). This step exists to catch a
         # recurrence automatically instead of only during a manual review.
         run: |
-          grep -vE '^\s*#' docker-compose.yml | grep -oE '\$\{[A-Z_]+' | sed 's/\${//' | sort -u > /tmp/compose_vars.txt
-          grep -oE '^[A-Z_]+=' .env.example | sed 's/=//' | sort -u > /tmp/env_example_vars.txt
+          grep -vE '^\s*#' docker-compose.yml | grep -oE '\$\{[A-Z0-9_]+' | sed 's/\${//' | sort -u > /tmp/compose_vars.txt
+          grep -oE '^[A-Z0-9_]+=' .env.example | sed 's/=//' | sort -u > /tmp/env_example_vars.txt
           missing=$(comm -23 /tmp/compose_vars.txt /tmp/env_example_vars.txt)
           if [ -n "$missing" ]; then
             echo "The following variables are referenced in docker-compose.yml but undocumented in .env.example:"
