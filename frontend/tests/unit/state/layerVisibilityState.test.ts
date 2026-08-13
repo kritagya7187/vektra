@@ -6,15 +6,15 @@ import {
   toggleLayer,
 } from '../../../src/state/layerVisibilityState';
 function reset(): void {
-layerVisibilityStore.set({
-  terrain: true,
-  imagery: true,
-  buildings3d: true,
-  maxDepth: true,
-  arrivalTime: false,
-  duration: false,
-  adminBoundary: false,
-});
+  layerVisibilityStore.set({
+    terrain: true,
+    imagery: true,
+    buildings3d: true,
+    maxDepth: true,
+    arrivalTime: false,
+    duration: false,
+    adminBoundary: false,
+  });
 }
 beforeEach(reset);
 describe('setLayerVisible', () => {

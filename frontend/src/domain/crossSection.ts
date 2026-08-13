@@ -11,7 +11,11 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-function pointAlong(points: readonly LonLat[], segmentLengths: readonly number[], targetM: number): LonLat {
+function pointAlong(
+  points: readonly LonLat[],
+  segmentLengths: readonly number[],
+  targetM: number,
+): LonLat {
   let travelled = 0;
   for (let i = 0; i < segmentLengths.length; i += 1) {
     const segmentLength = segmentLengths[i];

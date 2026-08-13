@@ -77,7 +77,8 @@ export async function submitDemoFloodSimulation(overrides?: {
   try {
     const result = await submitFloodSimulation({
       ...DEMO_FLOOD_SIMULATION_REQUEST,
-      rainfallRatesPath: overrides?.rainfallRatesPath ?? DEMO_FLOOD_SIMULATION_REQUEST.rainfallRatesPath,
+      rainfallRatesPath:
+        overrides?.rainfallRatesPath ?? DEMO_FLOOD_SIMULATION_REQUEST.rainfallRatesPath,
       solverParameters: overrides?.solverParameters,
       timesteppingParameters: overrides?.timesteppingParameters,
     });

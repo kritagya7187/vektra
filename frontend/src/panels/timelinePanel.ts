@@ -72,7 +72,9 @@ export function renderTimelinePanel(
                 h(
                   'span',
                   { class: 'propagation__value' },
-                  propagationTMinutes === null ? 'Final state' : `T+${Math.round(propagationTMinutes)} min`,
+                  propagationTMinutes === null
+                    ? 'Final state'
+                    : `T+${Math.round(propagationTMinutes)} min`,
                 ),
               ),
               h(

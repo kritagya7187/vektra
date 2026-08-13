@@ -149,9 +149,7 @@ export interface CityRunDetail {
   readonly runStatus: Record<string, unknown> | null;
 }
 export type CityRunArtifact =
-  | 'max-depth-geotiff'
-  | 'arrival-time-geotiff'
-  | 'duration-above-threshold-geotiff';
+  'max-depth-geotiff' | 'arrival-time-geotiff' | 'duration-above-threshold-geotiff';
 export type CityRunBoundary = Record<string, unknown>;
 export interface RainfallDay {
   readonly date: string;

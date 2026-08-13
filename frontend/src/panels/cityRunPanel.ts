@@ -62,7 +62,11 @@ function renderDetail(container: HTMLElement, detail: CityRunDetail): void {
       h('dt', {}, 'Run id'),
       h('dd', {}, runId),
       h('dt', {}, 'Tiles'),
-      h('dd', {}, `${tiles.filter((t) => t.status === 'completed').length} / ${tiles.length} completed`),
+      h(
+        'dd',
+        {},
+        `${tiles.filter((t) => t.status === 'completed').length} / ${tiles.length} completed`,
+      ),
       h('dt', {}, 'Max depth (city)'),
       h('dd', {}, `${formatUnknown(summary.max_depth_m_city)} m`),
       h('dt', {}, 'Wet area'),

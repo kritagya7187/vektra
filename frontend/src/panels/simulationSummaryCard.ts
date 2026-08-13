@@ -14,10 +14,11 @@ function summaryGroup(title: string, rows: readonly (readonly [string, string])[
     'div',
     { class: 'summary-card__group' },
     h('h3', { class: 'summary-card__group-title' }, title),
-    h('dl', { class: 'summary-card__group-body' }, ...rows.flatMap(([label, value]) => [
-      h('dt', {}, label),
-      h('dd', {}, value),
-    ])),
+    h(
+      'dl',
+      { class: 'summary-card__group-body' },
+      ...rows.flatMap(([label, value]) => [h('dt', {}, label), h('dd', {}, value)]),
+    ),
   );
 }
 
@@ -76,10 +77,7 @@ export function renderSimulationSummaryCard(container: HTMLElement): () => void 
         summaryGroup('Temporal', [
           ['Max arrival', `${stats.maxArrivalMin.toFixed(MINUTES_PRECISION)} min`],
           ['Max duration', `${stats.maxDurationMin.toFixed(MINUTES_PRECISION)} min`],
-          [
-            'Simulated time',
-            `${(stats.simulatedDurationS / 60).toFixed(MINUTES_PRECISION)} min`,
-          ],
+          ['Simulated time', `${(stats.simulatedDurationS / 60).toFixed(MINUTES_PRECISION)} min`],
           ['Simulated steps', String(stats.stepCount)],
         ]),
         depthHistogramChart(summary.maxDepthM),

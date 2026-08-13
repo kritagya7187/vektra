@@ -14,7 +14,9 @@ export function depthAtTime(
   );
 }
 
-export function maxArrivalMinutes(arrivalTimeGrid: readonly (readonly (number | null)[])[]): number {
+export function maxArrivalMinutes(
+  arrivalTimeGrid: readonly (readonly (number | null)[])[],
+): number {
   let max = 0;
   for (const row of arrivalTimeGrid) {
     for (const value of row) {

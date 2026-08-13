@@ -27,7 +27,9 @@ function profileSvg(samples: readonly ProfileSample[]): SVGSVGElement {
   svg.setAttribute('height', String(PROFILE_HEIGHT));
   svg.setAttribute('class', 'profile-svg');
 
-  const elevations = samples.map((sample) => sample.elevationM).filter((v): v is number => v !== null);
+  const elevations = samples
+    .map((sample) => sample.elevationM)
+    .filter((v): v is number => v !== null);
   if (elevations.length === 0) {
     return svg;
   }
@@ -90,7 +92,11 @@ function renderProfile(container: HTMLElement, points: readonly LonLat[]): void 
   svgWrap.appendChild(profileSvg(samples));
   mount(
     container,
-    h('p', { class: 'measure__hint' }, 'Elevation profile (terrain, and flood depth if available):'),
+    h(
+      'p',
+      { class: 'measure__hint' },
+      'Elevation profile (terrain, and flood depth if available):',
+    ),
     svgWrap,
   );
 }

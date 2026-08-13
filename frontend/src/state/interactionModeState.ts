@@ -1,13 +1,6 @@
 import { Store } from './store';
 export type InteractionMode =
-  | 'explore'
-  | 'simulate'
-  | 'inspect'
-  | 'measure'
-  | 'layers'
-  | 'compare'
-  | 'cityRuns'
-  | 'rainfall';
+  'explore' | 'simulate' | 'inspect' | 'measure' | 'layers' | 'compare' | 'cityRuns' | 'rainfall';
 export interface InteractionModeState {
   readonly mode: InteractionMode;
 }

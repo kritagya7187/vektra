@@ -5,6 +5,8 @@ import type { LayerId, LayerVisibility } from '../domain/layers';
 import type { LonLat } from '../domain/measurement';
 import type { TwinBuilding } from '../domain/twinBuildings';
 import { depthAtTime } from '../domain/floodPropagation';
+import { refineDepthGrid } from '../domain/floodMeshRefinement';
+import { gridMax } from '../domain/floodRaster';
 import { createAdminBoundaryLayer } from './boundaryLayer';
 import { createBuildingLayer } from './buildingLayer';
 import { flyToAoi, flyToBuildings, resetCamera } from './camera';
@@ -15,6 +17,18 @@ import { createMeasurementLayers } from './measurementLayer';
 import { createPhotorealisticTilesLayer } from './photorealisticTilesLayer';
 import { resolveMapClick, type MapClickResult } from './selection';
 const BUILDING_EXTRUSION_MIN_ZOOM = 14;
+const WATER_REFINEMENT_ZOOM_THRESHOLDS: readonly (readonly [number, number])[] = [
+  [16, 3],
+  [13, 2],
+];
+function refinementFactorForZoom(zoom: number): number {
+  for (const [threshold, factor] of WATER_REFINEMENT_ZOOM_THRESHOLDS) {
+    if (zoom >= threshold) {
+      return factor;
+    }
+  }
+  return 1;
+}
 const DEFAULT_VISIBILITY: LayerVisibility = {
   terrain: true,
   imagery: true,
@@ -36,9 +50,11 @@ export class TwinScene {
   private propagationTMinutes: number | null = null;
   private adminBoundary: CityRunBoundary | null = null;
   private buildingsExtruded = true;
+  private waterRefinementFactor = 1;
   constructor(container: HTMLElement, onMapClick: (result: MapClickResult) => void) {
     this.map = createMap(container);
     this.buildingsExtruded = this.map.getZoom() >= BUILDING_EXTRUSION_MIN_ZOOM;
+    this.waterRefinementFactor = refinementFactorForZoom(this.map.getZoom());
     this.overlay = new MapboxOverlay({
       layers: [],
       onClick: (info): void => {
@@ -58,9 +74,15 @@ export class TwinScene {
     this.map.on('zoom', (): void => this.handleZoomChange());
   }
   private handleZoomChange(): void {
-    const nextExtruded = this.map.getZoom() >= BUILDING_EXTRUSION_MIN_ZOOM;
-    if (nextExtruded !== this.buildingsExtruded) {
-      this.buildingsExtruded = nextExtruded;
+    const zoom = this.map.getZoom();
+    const nextExtruded = zoom >= BUILDING_EXTRUSION_MIN_ZOOM;
+    const nextRefinementFactor = refinementFactorForZoom(zoom);
+    const changed =
+      nextExtruded !== this.buildingsExtruded ||
+      nextRefinementFactor !== this.waterRefinementFactor;
+    this.buildingsExtruded = nextExtruded;
+    this.waterRefinementFactor = nextRefinementFactor;
+    if (changed) {
       this.rebuildLayers();
     }
   }
@@ -146,13 +168,23 @@ export class TwinScene {
               this.propagationTMinutes,
             )
           : this.floodSummary.maxDepthM;
+      const refinedDepthGrid = refineDepthGrid(waterDepthGrid, this.waterRefinementFactor);
+      const maxDepthValue = gridMax(this.floodSummary.maxDepthM);
       layers.push(
-        createFloodWaterLayer(waterDepthGrid, this.aoiBoundsWgs84, this.visibility.maxDepth),
+        createFloodWaterLayer(
+          refinedDepthGrid,
+          this.aoiBoundsWgs84,
+          this.visibility.maxDepth,
+          maxDepthValue,
+        ),
       );
       layers.push(...createFloodLayers(this.floodSummary, this.aoiBoundsWgs84, this.visibility));
     }
     layers.push(...createMeasurementLayers(this.measurementPoints));
-    const boundaryLayer = createAdminBoundaryLayer(this.adminBoundary, this.visibility.adminBoundary);
+    const boundaryLayer = createAdminBoundaryLayer(
+      this.adminBoundary,
+      this.visibility.adminBoundary,
+    );
     if (boundaryLayer) {
       layers.push(boundaryLayer);
     }

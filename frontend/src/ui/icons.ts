@@ -32,8 +32,21 @@ function svgEl<K extends keyof SVGElementTagNameMap>(
 
 type Shape =
   | { readonly kind: 'circle'; readonly cx: number; readonly cy: number; readonly r: number }
-  | { readonly kind: 'line'; readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number }
-  | { readonly kind: 'rect'; readonly x: number; readonly y: number; readonly w: number; readonly h: number; readonly rx?: number }
+  | {
+      readonly kind: 'line';
+      readonly x1: number;
+      readonly y1: number;
+      readonly x2: number;
+      readonly y2: number;
+    }
+  | {
+      readonly kind: 'rect';
+      readonly x: number;
+      readonly y: number;
+      readonly w: number;
+      readonly h: number;
+      readonly rx?: number;
+    }
   | { readonly kind: 'polyline'; readonly points: string }
   | { readonly kind: 'polygon'; readonly points: string }
   | { readonly kind: 'path'; readonly d: string };

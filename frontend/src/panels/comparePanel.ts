@@ -5,13 +5,14 @@ import { clear, h, mount } from '../utils/dom';
 import { createPanelShell } from './panelShell';
 import type { PanelController } from './types';
 
-const KPI_KEYS: readonly { readonly key: string; readonly label: string; readonly unit: string }[] = [
-  { key: 'max_depth_m_city', label: 'Max depth', unit: 'm' },
-  { key: 'wet_area_m2', label: 'Wet area', unit: 'm²' },
-  { key: 'wet_cell_count', label: 'Wet cells', unit: '' },
-  { key: 'tile_count', label: 'Tiles', unit: '' },
-  { key: 'unknown_terrain_cell_count', label: 'Excluded terrain cells', unit: '' },
-];
+const KPI_KEYS: readonly { readonly key: string; readonly label: string; readonly unit: string }[] =
+  [
+    { key: 'max_depth_m_city', label: 'Max depth', unit: 'm' },
+    { key: 'wet_area_m2', label: 'Wet area', unit: 'm²' },
+    { key: 'wet_cell_count', label: 'Wet cells', unit: '' },
+    { key: 'tile_count', label: 'Tiles', unit: '' },
+    { key: 'unknown_terrain_cell_count', label: 'Excluded terrain cells', unit: '' },
+  ];
 
 function runSelect(
   runs: readonly CityRunSummary[],
@@ -40,11 +41,7 @@ async function renderComparison(
       h(
         'table',
         { class: 'compare__table' },
-        h(
-          'thead',
-          {},
-          h('tr', {}, h('th', {}, 'KPI'), h('th', {}, runIdA), h('th', {}, runIdB)),
-        ),
+        h('thead', {}, h('tr', {}, h('th', {}, 'KPI'), h('th', {}, runIdA), h('th', {}, runIdB))),
         h(
           'tbody',
           {},

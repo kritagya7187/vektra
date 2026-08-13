@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  interactionModeStore,
-  setInteractionMode,
-} from '../../../src/state/interactionModeState';
+import { interactionModeStore, setInteractionMode } from '../../../src/state/interactionModeState';
 
 beforeEach(() => {
   interactionModeStore.set({ mode: 'explore' });

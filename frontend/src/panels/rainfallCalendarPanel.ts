@@ -52,7 +52,9 @@ function firstWeekday(monthKey: string): number {
 }
 
 function isRunActive(status: string | undefined): boolean {
-  return status !== undefined && status !== 'completed' && status !== 'failed' && status !== 'cancelled';
+  return (
+    status !== undefined && status !== 'completed' && status !== 'failed' && status !== 'cancelled'
+  );
 }
 
 function monthlyProfileChart(entries: readonly RainfallProfileEntry[]): HTMLElement {
@@ -208,13 +210,21 @@ export function renderRainfallCalendarPanel(
             h(
               'div',
               { class: 'rainfall-detail__readout' },
-              h('span', { class: 'rainfall-detail__readout-value' }, selectedDay.totalMm.toFixed(1)),
+              h(
+                'span',
+                { class: 'rainfall-detail__readout-value' },
+                selectedDay.totalMm.toFixed(1),
+              ),
               h('span', { class: 'rainfall-detail__readout-unit' }, 'mm total'),
             ),
             h(
               'div',
               { class: 'rainfall-detail__readout' },
-              h('span', { class: 'rainfall-detail__readout-value' }, selectedDay.maxHourlyMm.toFixed(1)),
+              h(
+                'span',
+                { class: 'rainfall-detail__readout-value' },
+                selectedDay.maxHourlyMm.toFixed(1),
+              ),
               h('span', { class: 'rainfall-detail__readout-unit' }, 'mm/hr peak'),
             ),
           ),
@@ -233,7 +243,11 @@ export function renderRainfallCalendarPanel(
             : null,
           error ? h('p', { role: 'alert' }, error.message) : null,
         )
-      : h('p', { class: 'rainfall-detail__hint' }, 'Select a highlighted date to inspect and run it.');
+      : h(
+          'p',
+          { class: 'rainfall-detail__hint' },
+          'Select a highlighted date to inspect and run it.',
+        );
 
     clear(shell.body);
     mount(shell.body, grid, detail);

@@ -18,7 +18,7 @@ describe('computeMonthlyProfile', () => {
     expect(profile[0].date).toBe('2020-07-01');
     expect(profile[2].date).toBe('2020-07-03');
   });
-  it('scales intensity relative to the month\'s own real maximum', () => {
+  it("scales intensity relative to the month's own real maximum", () => {
     const profile = computeMonthlyProfile(DAYS, '2020-07', null);
     const day3 = profile.find((entry) => entry.date === '2020-07-03');
     expect(day3?.intensity).toBe(1);

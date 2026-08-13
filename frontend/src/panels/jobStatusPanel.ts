@@ -15,7 +15,10 @@ export function renderJobStatusPanel(container: HTMLElement): () => void {
     const { status, activeRun } = floodRunStore.get();
     clear(container);
     if (status === 'loading' && !activeRun) {
-      mount(container, h('div', { class: 'job-status' }, h('p', { role: 'status' }, 'Submitting…')));
+      mount(
+        container,
+        h('div', { class: 'job-status' }, h('p', { role: 'status' }, 'Submitting…')),
+      );
       return;
     }
     if (!activeRun) {

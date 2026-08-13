@@ -59,7 +59,8 @@ export function renderSimulatePanel(container: HTMLElement, onClose: () => void)
 
   const render = (): void => {
     const { status, activeRun, error } = floodRunStore.get();
-    const busy = status === 'loading' || (activeRun !== null && !isTerminalStatus(activeRun.status));
+    const busy =
+      status === 'loading' || (activeRun !== null && !isTerminalStatus(activeRun.status));
 
     const actions = h(
       'div',

@@ -82,7 +82,9 @@ export function createBuildingLayer(
     },
     getLineColor: (feature): readonly [number, number, number, number] => {
       const properties = feature.properties as BuildingGeoJsonProperties;
-      return properties.buildingId === selectedBuildingId ? SELECTED_LINE_RGBA : TRANSPARENT_LINE_RGBA;
+      return properties.buildingId === selectedBuildingId
+        ? SELECTED_LINE_RGBA
+        : TRANSPARENT_LINE_RGBA;
     },
     updateTriggers: {
       getFillColor: [selectedBuildingId, affectedIds],
