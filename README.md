@@ -2,61 +2,62 @@
 
 <img width="600" alt="VEKTRA — Physics-Based Urban Flood Digital Twin" src="VEKTRA_Logo.png" />
 
-**VEKTRA** is a physics-based urban flood digital twin for exploring rainfall-driven
-pluvial flooding in a three-dimensional representation of the built environment.
+### Physics-Based Urban Flood Digital Twin
 
-It combines real geospatial and meteorological observations, a physically grounded
-reduced-complexity overland-flow model, a shared PostGIS data layer, and an
-interactive 3D web interface.
+VEKTRA is an open, research-oriented urban flood digital twin that connects real Earth-observation data, geospatial data, rainfall forcing, physically grounded flood modelling, and an interactive 3D city interface.
 
-> **Research software. Real data. Real simulation. Interactive digital twin.**
+The system is designed around a simple idea:
+
+> **A city should not be represented only as a map. It should be possible to explore how rainfall interacts with terrain, buildings, and the urban environment through a physically grounded simulation.**
+
+VEKTRA currently operates on a real Mumbai study area and combines:
+
+- real SRTM elevation data
+- ESA WorldCover land-cover data
+- real OpenStreetMap building footprints
+- real municipal boundary data
+- real ERA5-Land rainfall observations
+- a WCA2D/CADDIES-style reduced-complexity overland-flow solver
+- tiled city-scale execution
+- georeferenced GeoTIFF flood products
+- an interactive 3D digital-twin viewer
+
+The project is intended as a research and engineering platform rather than a generic map viewer.
 
 ---
 
 ## What VEKTRA does
 
-VEKTRA connects four components into one workflow:
+VEKTRA connects the following pipeline:
 
 ```text
-        REAL-WORLD DATA
-              │
-              ▼
-   ┌──────────────────────┐
-   │   Geospatial Data    │
-   │                      │
-   │ • OSM buildings      │
-   │ • Terrain / DEM      │
-   │ • Land characteristics│
-   │ • Administrative AOI │
-   │ • Meteorological data│
-   └──────────┬───────────┘
-              │
-              ▼
-   ┌──────────────────────┐
-   │      PostGIS          │
-   │  Shared spatial data  │
-   │       layer           │
-   └──────────┬───────────┘
-              │
-       ┌──────┴───────┐
-       ▼              ▼
-┌─────────────┐  ┌─────────────┐
-│ Flood Engine│  │   Backend   │
-│   WCA2D     │  │ Node + TS   │
-│             │  │ REST API    │
-└──────┬──────┘  └──────┬──────┘
-       │                │
-       └────────┬───────┘
-                ▼
-       ┌──────────────────┐
-       │  VEKTRA Frontend │
-       │                  │
-       │ MapLibre + deck.gl│
-       │                  │
-       │ Rainfall calendar│
-       │ 3D buildings     │
-       │ Flood depth      │
-       │ Arrival time     │
-       │ Duration         │
-       │ Temporal control │
-       └──────────────────┘
+Earth Observation + Open Geospatial Data
+                 │
+                 ▼
+        Spatial Data Ingestion
+                 │
+                 ▼
+        PostGIS Canonical Store
+                 │
+        ┌────────┴────────┐
+        │                 │
+        ▼                 ▼
+   Rainfall Events    City Geometry
+        │                 │
+        └────────┬────────┘
+                 ▼
+          Flood Engine
+          WCA2D Solver
+                 │
+                 ▼
+       Tiled City-Scale Run
+                 │
+                 ▼
+       Georeferenced Outputs
+                 │
+        ┌────────┴────────┐
+        ▼                 ▼
+   GeoTIFF Products    API / Job Queue
+                          │
+                          ▼
+                 Interactive 3D Twin
