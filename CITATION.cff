@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+title: "VEKTRA: Urban Flood Digital Twin"
+message: "If you use VEKTRA in your research, please cite this repository."
+type: software
+
+authors:
+  - family-names: "Singh Tomar"
+    given-names: "Kritagya Kumar"
+
+repository-code: "https://github.com/kritagya7187/vektra"
+
+license: "Apache-2.0"
+
+version: "0.1.0"
+
+abstract: >
+  VEKTRA is an urban flood digital twin integrating
+  geospatial visualization, rainfall forcing, urban building
+  data, and flood simulation within an interactive 3D environment.
